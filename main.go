@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/hmac"
 	"crypto/sha512"
 	"encoding/hex"
@@ -12,7 +14,6 @@ import (
 	"mime"
 	"net/http"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -86,8 +87,10 @@ func crawl(baseURL string, keywordsToIgnore []string, keywordsToInclude []string
 		if download {
 			files, _ := ioutil.ReadDir("./")
 			for _, f := range files {
-				basename := f.Name()
-				name := strings.TrimSuffix(basename, filepath.Ext(basename))
+				name := strings.Split(f.Name(), ".")[0]
+				if len(name) < 2 {
+					continue
+				}
 				curFileList[name] = true
 			}
 		}
@@ -131,6 +134,7 @@ func crawl(baseURL string, keywordsToIgnore []string, keywordsToInclude []string
 				} else {
 					defer resp.Body.Close()
 					if resp.StatusCode == 200 {
+						numberOfURLSParsed++
 
 						// Special case, download things in todo
 						if download {
@@ -144,13 +148,14 @@ func crawl(baseURL string, keywordsToIgnore []string, keywordsToInclude []string
 							if err != nil {
 								log.Fatal(err)
 							}
-							file, err := os.Create(hash(url) + extension)
-							if err != nil {
-								log.Fatal(err)
-							}
-							defer file.Close()
 
-							_, err = file.Write(file_content)
+							var buf bytes.Buffer
+							writer := gzip.NewWriter(&buf)
+							writer.Write(file_content)
+							writer.Close()
+							filename := hash(url) + extension + ".gz"
+
+							err = ioutil.WriteFile(filename, buf.Bytes(), 0755)
 							if err != nil {
 								log.Fatal(err)
 							}
@@ -215,7 +220,6 @@ func crawl(baseURL string, keywordsToIgnore []string, keywordsToInclude []string
 						}
 						doneURLS.Set(url, currentNumberOfTries)
 						todoURLS.Delete(url)
-						numberOfURLSParsed++
 					} else {
 						if currentNumberOfTries > 3 {
 							trashURLS.Set(url, currentNumberOfTries)
