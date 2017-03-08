@@ -1,12 +1,18 @@
 package main
 
 import (
+	"crypto/hmac"
+	"crypto/sha512"
+	"encoding/hex"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math"
+	"mime"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -17,7 +23,13 @@ import (
 	"github.com/schollz/jsonstore"
 )
 
-func crawl(baseURL string, keywordsToIgnore []string, maxNumberWorkers int, connectionPool int, logging bool) {
+func hash(data string) string {
+	h := hmac.New(sha512.New512_256, []byte("urls to save to disk"))
+	h.Write([]byte(data))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func crawl(baseURL string, keywordsToIgnore []string, keywordsToInclude []string, maxNumberWorkers int, connectionPool int, logging bool, download bool) {
 	// Generate the connection pool
 	var tr *http.Transport
 	var client *http.Client
@@ -37,32 +49,61 @@ func crawl(baseURL string, keywordsToIgnore []string, maxNumberWorkers int, conn
 	todoURLS := new(jsonstore.JSONStore)
 	trashURLS := new(jsonstore.JSONStore)
 	// Load the keystores if they already exist
-	if _, err = os.Stat("doneURLS.json"); err == nil {
+	if _, err = os.Stat("todoURLS.json"); err == nil {
 		var err2 error
-		doneURLS, err2 = jsonstore.Open("doneURLS.json")
-		if err2 != nil {
-			panic(err)
-		}
 		todoURLS, err2 = jsonstore.Open("todoURLS.json")
-		if err2 != nil {
-			panic(err)
-		}
-		trashURLS, err2 = jsonstore.Open("trashURLS.json")
 		if err2 != nil {
 			panic(err)
 		}
 	} else {
 		todoURLS.Set(baseURL, true)
 	}
+	if _, err = os.Stat("doneURLS.json"); err == nil {
+		var err2 error
+		doneURLS, err2 = jsonstore.Open("doneURLS.json")
+		if err2 != nil {
+			panic(err)
+		}
+	}
+	if _, err = os.Stat("trashURLS.json"); err == nil {
+		var err2 error
+		doneURLS, err2 = jsonstore.Open("trashURLS.json")
+		if err2 != nil {
+			panic(err)
+		}
+	}
 
 	// Start scraping
+	var curFileList map[string]bool
+	if download {
+		curFileList = make(map[string]bool)
+	}
 	programTime := time.Now()
 	numberOfURLSParsed := 0
 	it := 0
 	for {
 		it++
+		if download {
+			files, _ := ioutil.ReadDir("./")
+			for _, f := range files {
+				basename := f.Name()
+				name := strings.TrimSuffix(basename, filepath.Ext(basename))
+				curFileList[name] = true
+			}
+		}
 		numWorkers := 0
 		for URLToDo := range todoURLS.GetAll(regexp.MustCompile(`.*`)) {
+			if download {
+				if _, ok := curFileList[hash(URLToDo)]; ok {
+					if logging {
+						log.Printf("Already downloaded %s", URLToDo)
+					}
+					todoURLS.Delete(URLToDo)
+					doneURLS.Set(URLToDo, 0)
+					continue
+				}
+
+			}
 			numWorkers++
 			if numWorkers > maxNumberWorkers {
 				break
@@ -90,6 +131,38 @@ func crawl(baseURL string, keywordsToIgnore []string, maxNumberWorkers int, conn
 				} else {
 					defer resp.Body.Close()
 					if resp.StatusCode == 200 {
+
+						// Special case, download things in todo
+						if download {
+							contentType := resp.Header.Get("Content-type")
+							contentTypes, contentTypeErr := mime.ExtensionsByType(contentType)
+							extension := ""
+							if contentTypeErr == nil {
+								extension = contentTypes[0]
+							}
+							file_content, err := ioutil.ReadAll(resp.Body)
+							if err != nil {
+								log.Fatal(err)
+							}
+							file, err := os.Create(hash(url) + extension)
+							if err != nil {
+								log.Fatal(err)
+							}
+							defer file.Close()
+
+							_, err = file.Write(file_content)
+							if err != nil {
+								log.Fatal(err)
+							}
+
+							if logging {
+								log.Printf("Saved %s to %s", url, hash(url)+extension)
+							}
+							todoURLS.Delete(url)
+							doneURLS.Set(url, currentNumberOfTries)
+							return
+						}
+
 						links := collectlinks.All(resp.Body)
 						if logging {
 							log.Printf("Got %d links from %s\n", len(links), url)
@@ -119,6 +192,18 @@ func crawl(baseURL string, keywordsToIgnore []string, maxNumberWorkers int, conn
 								}
 							}
 							if foundIgnoredKeyword {
+								continue
+							}
+
+							// Include keywords
+							foundIncludeKeyword := false
+							for _, keyword := range keywordsToInclude {
+								if strings.Contains(urlNormalized, keyword) {
+									foundIncludeKeyword = true
+									break
+								}
+							}
+							if !foundIncludeKeyword {
 								continue
 							}
 
@@ -169,18 +254,20 @@ func crawl(baseURL string, keywordsToIgnore []string, maxNumberWorkers int, conn
 
 func main() {
 	// Parse flags
-	var baseURL, ignoreKeywords string
+	var baseURL, ignoreKeywords, includeKeywords string
 	var maxNumberWorkers, connectionPool int
-	var logging bool
+	var logging, download bool
 	flag.StringVar(&baseURL, "url", "", "URL to crawl `e.g. https://xkcd.com`")
 	flag.StringVar(&ignoreKeywords, "ignore", "", "comma-delimited keywords to ignore")
+	flag.StringVar(&includeKeywords, "include", "", "comma-delimited keywords that must include")
 	flag.IntVar(&maxNumberWorkers, "workers", 100, "max number of workers")
 	flag.IntVar(&connectionPool, "pool", 100, "number of connections in pool")
 	flag.BoolVar(&logging, "v", false, "verbose")
+	flag.BoolVar(&download, "dl", false, "download")
 	flag.Parse()
 
 	// Check it base URL is given
-	if baseURL == "" {
+	if baseURL == "" && !download {
 		print("Must specify URL to crawl")
 		os.Exit(1)
 	}
@@ -194,6 +281,15 @@ func main() {
 		}
 	}
 
+	// Determine the keywords to include
+	var keywordsToInclude []string
+	if includeKeywords != "" {
+		keywordsToInclude = strings.Split(includeKeywords, ",")
+		for i, keyword := range keywordsToInclude {
+			keywordsToInclude[i] = strings.ToLower(strings.TrimSpace(keyword))
+		}
+	}
+
 	// crawl
-	crawl(baseURL, keywordsToIgnore, maxNumberWorkers, connectionPool, logging)
+	crawl(baseURL, keywordsToIgnore, keywordsToInclude, maxNumberWorkers, connectionPool, logging, download)
 }
