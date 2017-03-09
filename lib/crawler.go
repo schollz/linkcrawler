@@ -83,7 +83,7 @@ func (c *Crawler) loadKeyStores(urls []string, download bool) error {
 	}
 
 	if _, err = os.Stat(filePrefix + "_done.json"); err == nil {
-		c.done, err2 = jsonstore.Open(filePrefixx + "_done.json")
+		c.done, err2 = jsonstore.Open(filePrefix + "_done.json")
 		if err2 != nil {
 			return err2
 		}

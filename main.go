@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
+	"strings"
 	"time"
 
-	"github.com/schollz/crawler/crawler"
+	"github.com/schollz/crawler/lib"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -65,11 +67,32 @@ func main() {
 				}
 				fmt.Println(c.GlobalString("lang"))
 				fmt.Println(url)
-				crawl, err := New(url)
+
+				// Setup crawler
+				crawler, err := crawler.New(url)
 				if err != nil {
 					return err
 				}
-
+				if c.GlobalString("prefix") != "" {
+					crawler.FilePrefix = c.GlobalString("prefix")
+				}
+				crawler.MaxNumberConnections = c.GlobalInt("conn")
+				crawler.MaxNumberWorkers = c.GlobalInt("workers")
+				crawler.Verbose = c.GlobalBool("verbose")
+				if len(c.GlobalString("include")) > 0 {
+					crawler.KeywordsToInclude = strings.Split(strings.ToLower(c.GlobalString("include")), ",")
+				}
+				if len(c.GlobalString("exclude")) > 0 {
+					crawler.KeywordsToExclude = strings.Split(strings.ToLower(c.GlobalString("exclude")), ",")
+				}
+				err = crawler.Crawl()
+				if err != nil {
+					return err
+				}
+				linkArray := crawler.GetLinks()
+				links := strings.Join(linkArray, "\n")
+				ioutil.WriteFile("links.txt", []byte(links), 0755)
+				fmt.Printf("%d links written to links.txt", len(linkArray))
 				return nil
 			},
 		},
@@ -85,12 +108,39 @@ func main() {
 					fmt.Println("Must specify file containing list of URLs")
 					return nil
 				}
-				fmt.Println(c.GlobalString("lang"))
-				fmt.Println(fileWithListOfURLS)
+
+				// Setup crawler
+				crawler, err := crawler.New(fileWithListOfURLS)
+				if err != nil {
+					return err
+				}
+				if c.GlobalString("prefix") != "" {
+					crawler.FilePrefix = c.GlobalString("prefix")
+				}
+				crawler.MaxNumberConnections = c.GlobalInt("conn")
+				crawler.MaxNumberWorkers = c.GlobalInt("workers")
+				crawler.Verbose = c.GlobalBool("verbose")
+				if len(c.GlobalString("include")) > 0 {
+					crawler.KeywordsToInclude = strings.Split(strings.ToLower(c.GlobalString("include")), ",")
+				}
+				if len(c.GlobalString("exclude")) > 0 {
+					crawler.KeywordsToExclude = strings.Split(strings.ToLower(c.GlobalString("exclude")), ",")
+				}
+
+				b, err := ioutil.ReadFile(fileWithListOfURLS)
+				if err != nil {
+					return err
+				}
+				links := strings.Split(string(b), "\n")
+				err = crawler.Download(links)
+				if err != nil {
+					return err
+				}
 				return nil
 			},
 		},
 	}
 
 	app.Run(os.Args)
+
 }
