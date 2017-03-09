@@ -10,7 +10,7 @@ go get github.com/schollz/linkcrawler/...
 
 # Run
 
-You can crawl all the links on a website:
+To capture all the links on a website:
 
 ```
 $ linkcrawler crawl http://rpiai.com
@@ -19,8 +19,7 @@ http://rpiai.com
 32 links written to links.txt
 ```
 
-And also download a list of links. Downloads are saved into a folder `downloaded` with url of link encoded in Base32.
-
+To download gzipped webpages:
 ```
 $ linkcrawler download links.txt
 2017/03/09 07:55:51 Parsed 32 urls in 1.1709399s (0.03659 seconds / URL), 32/0
@@ -28,6 +27,9 @@ $ ls downloaded | head -n 2
 NB2HI4B2F4XXE4DJMFUS4Y3PNU======.html.gz
 NB2HI4B2F4XXE4DJMFUS4Y3PNUXQ====.html.gz
 ```
+
+Downloads are saved into a folder `downloaded` with url of link encoded in Base32.
+
 
 ## Persistence 
 
