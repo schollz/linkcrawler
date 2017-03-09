@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dustin/go-humanize"
 	"github.com/goware/urlx"
 	"github.com/jackdanger/collectlinks"
 	"github.com/schollz/jsonstore"
@@ -122,7 +123,12 @@ func (c *Crawler) saveKeyStores(download bool) (int, error) {
 	URLperSecond := int(float64(c.numberOfURLSParsed) / parsingTime.Seconds())
 	numTodo := len(c.todo.GetAll(regexp.MustCompile(`.*`)))
 	numFinished := len(c.done.GetAll(regexp.MustCompile(`.*`)))
-	log.Printf("Parsed %d urls in %s (%d URLs/s). Finished: %d, Todo: %d\n", c.numberOfURLSParsed, parsingTime.String(), URLperSecond, numFinished, numTodo)
+	log.Printf("Parsed %s urls in %s (%d URLs/s). Finished: %s, Todo: %s\n",
+		humanize.Comma(int64(c.numberOfURLSParsed)),
+		parsingTime.String(),
+		URLperSecond,
+		humanize.Comma(int64(numFinished)),
+		humanize.Comma(int64(numTodo)))
 	return numTodo, nil
 }
 
@@ -273,7 +279,7 @@ func (c *Crawler) collectLinks(url string, download bool) error {
 			c.trash.Set(url, currentNumberOfTries)
 			c.todo.Delete(url)
 			if c.Verbose {
-				log.Println("Too many tries, deleting " + url)
+				log.Println("Too many tries, trashing " + url)
 			}
 		} else {
 			c.todo.Set(url, currentNumberOfTries)
