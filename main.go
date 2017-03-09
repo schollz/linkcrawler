@@ -141,8 +141,10 @@ func main() {
 				}
 				err = crawler.Download(links)
 				if err != nil {
+					fmt.Printf("Error downloading: %s", err.Error())
 					return err
 				}
+				fmt.Println("Finished downloading")
 				return nil
 			},
 		},

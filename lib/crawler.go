@@ -119,10 +119,10 @@ func (c *Crawler) saveKeyStores(download bool) (int, error) {
 		return -1, err3
 	}
 	parsingTime := time.Since(c.programTime)
-	timePerURL := parsingTime.Seconds() / float64(c.numberOfURLSParsed)
+	URLperSecond := int(float64(c.numberOfURLSParsed) / parsingTime.Seconds())
 	numTodo := len(c.todo.GetAll(regexp.MustCompile(`.*`)))
 	numFinished := len(c.done.GetAll(regexp.MustCompile(`.*`)))
-	log.Printf("Parsed %d urls in %s (%2.5f seconds / URL), %d/%d\n", c.numberOfURLSParsed, parsingTime.String(), timePerURL, numFinished, numTodo)
+	log.Printf("Parsed %d urls in %s (%d URLs/s). Finished: %d, Todo: %d\n", c.numberOfURLSParsed, parsingTime.String(), URLperSecond, numFinished, numTodo)
 	return numTodo, nil
 }
 
@@ -144,8 +144,8 @@ func (c *Crawler) collectLinks(url string, download bool) error {
 
 	var foo, currentNumberOfTries int
 
-	// Check if it is done
-	if c.done.Get(url, &foo) == nil {
+	// Skip if the URL is done or trashed
+	if c.done.Get(url, &foo) == nil || c.trash.Get(url, &foo) == nil {
 		c.todo.Delete(url)
 		return nil
 	}
@@ -371,5 +371,4 @@ func (c *Crawler) downloadOrCrawl(download bool) error {
 			}
 		}
 	}
-	return nil
 }
