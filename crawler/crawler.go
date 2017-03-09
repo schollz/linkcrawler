@@ -54,7 +54,7 @@ func New(url string) (*Crawler, error) {
 	return c, nil
 }
 
-func (c *Crawler) loadKeyStores() error {
+func (c *Crawler) loadKeyStores(urls []string, download bool) error {
 	var err, err2 error
 
 	// Initialize the keystores
@@ -62,23 +62,33 @@ func (c *Crawler) loadKeyStores() error {
 	c.todo = new(jsonstore.JSONStore)
 	c.trash = new(jsonstore.JSONStore)
 
+	// Determine the file prefix
+	filePrefix := c.FilePrefix
+	if download {
+		filePrefix = filePrefix + "_dl"
+	} else {
+		filePrefix = filePrefix + "_crawl"
+	}
+
 	// Load the keystores if they already exist
-	if _, err = os.Stat(c.FilePrefix + "_todo.json"); err == nil {
+	if _, err = os.Stat(filePrefix + "_todo.json"); err == nil {
 		c.todo, err2 = jsonstore.Open(c.FilePrefix + "_todo.json")
 		if err2 != nil {
 			return err2
 		}
 	} else {
-		c.todo.Set(c.BaseURL, true)
+		for _, url := range urls {
+			c.todo.Set(url, 0)
+		}
 	}
 
-	if _, err = os.Stat(c.FilePrefix + "_done.json"); err == nil {
+	if _, err = os.Stat(filePrefix + "_done.json"); err == nil {
 		c.done, err2 = jsonstore.Open(c.FilePrefix + "_done.json")
 		if err2 != nil {
 			return err2
 		}
 	}
-	if _, err = os.Stat(c.FilePrefix + "_trash.json"); err == nil {
+	if _, err = os.Stat(filePrefix + "_trash.json"); err == nil {
 		c.trash, err2 = jsonstore.Open(c.FilePrefix + "_trash.json")
 		if err2 != nil {
 			return err2
@@ -88,10 +98,18 @@ func (c *Crawler) loadKeyStores() error {
 }
 
 // saveData saves the data to the respective files
-func (c *Crawler) saveKeyStores() (int, error) {
-	err1 := jsonstore.Save(c.done, c.FilePrefix+"_done.json")
-	err2 := jsonstore.Save(c.todo, c.FilePrefix+"_todo.json")
-	err3 := jsonstore.Save(c.trash, c.FilePrefix+"_trash.json")
+func (c *Crawler) saveKeyStores(download bool) (int, error) {
+	// Determine the file prefix
+	filePrefix := c.FilePrefix
+	if download {
+		filePrefix = filePrefix + "_dl"
+	} else {
+		filePrefix = filePrefix + "_crawl"
+	}
+
+	err1 := jsonstore.Save(c.done, filePrefix+"_done.json")
+	err2 := jsonstore.Save(c.todo, filePrefix+"_todo.json")
+	err3 := jsonstore.Save(c.trash, filePrefix+"_trash.json")
 	if err1 != nil {
 		return -1, err1
 	} else if err2 != nil {
@@ -282,14 +300,12 @@ func (c *Crawler) GetLinks() []string {
 
 // Crawl downloads the pages specified in the todo file
 func (c *Crawler) Download(urls []string) error {
-	// Initialize the keystores
-	c.done = new(jsonstore.JSONStore)
-	c.todo = new(jsonstore.JSONStore)
-	c.trash = new(jsonstore.JSONStore)
+	download := true
 
-	// Generate the todo set
-	for _, url := range urls {
-		c.todo.Set(url, 0)
+	// Initialize the keystores
+	err := c.loadKeyStores(urls, download)
+	if err != nil {
+		return err
 	}
 
 	// Determine which files have been downloaded
@@ -304,19 +320,20 @@ func (c *Crawler) Download(urls []string) error {
 			c.curFileList[name] = true
 		}
 	}
-	download := true
+
 	return c.downloadOrCrawl(download)
 }
 
 // Crawl is the function to crawl with the set parameters
 func (c *Crawler) Crawl() error {
+	download := false
+
 	// Initialize/load the key stores
-	err := c.loadKeyStores()
+	err := c.loadKeyStores([]string{c.BaseURL}, download)
 	if err != nil {
 		return err
 	}
 
-	download := false
 	return c.downloadOrCrawl(download)
 }
 
@@ -347,7 +364,7 @@ func (c *Crawler) downloadOrCrawl(download bool) error {
 
 		// Save every 5th iteration
 		if math.Mod(float64(it), float64(5)) == 0 {
-			numTodo, err2 := c.saveKeyStores()
+			numTodo, err2 := c.saveKeyStores(download)
 			if err2 != nil || numTodo == 0 {
 				return err2
 			}

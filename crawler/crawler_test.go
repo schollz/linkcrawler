@@ -7,9 +7,12 @@ import (
 )
 
 func TestGeneral(t *testing.T) {
-	defer os.Remove("NB2HI4B2F4XXE4DJMFUS4Y3PNUXQ====_todo.json")
-	defer os.Remove("NB2HI4B2F4XXE4DJMFUS4Y3PNUXQ====_done.json")
-	defer os.Remove("NB2HI4B2F4XXE4DJMFUS4Y3PNUXQ====_trash.json")
+	defer os.Remove("NB2HI4B2F4XXE4DJMFUS4Y3PNUXQ====_crawl_todo.json")
+	defer os.Remove("NB2HI4B2F4XXE4DJMFUS4Y3PNUXQ====_crawl_done.json")
+	defer os.Remove("NB2HI4B2F4XXE4DJMFUS4Y3PNUXQ====_crawl_trash.json")
+	defer os.Remove("NB2HI4B2F4XXE4DJMFUS4Y3PNUXQ====_dl_todo.json")
+	defer os.Remove("NB2HI4B2F4XXE4DJMFUS4Y3PNUXQ====_dl_done.json")
+	defer os.Remove("NB2HI4B2F4XXE4DJMFUS4Y3PNUXQ====_dl_trash.json")
 	crawl, err := New("http://rpiai.com/")
 	if err != nil {
 		t.Error(err)
@@ -20,7 +23,7 @@ func TestGeneral(t *testing.T) {
 		t.Error(err)
 	}
 
-	numTodo, err := crawl.saveKeyStores()
+	numTodo, err := crawl.saveKeyStores(false)
 	if err != nil {
 		t.Error(err)
 	}
