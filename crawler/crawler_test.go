@@ -31,4 +31,14 @@ func TestGeneral(t *testing.T) {
 	if len(crawl.done.GetAll(regexp.MustCompile(`.*`))) < 30 {
 		t.Errorf("Did not get all the websites crawled!")
 	}
+
+	allLinks := crawl.GetLinks()
+	if len(allLinks) < 30 {
+		t.Errorf("Only got %d links", len(allLinks))
+	}
+
+	err = crawl.Download(allLinks)
+	if err != nil {
+		t.Errorf("Problem downloading: %s", err.Error())
+	}
 }

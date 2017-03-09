@@ -1,11 +1,16 @@
 package crawler
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/base32"
+	"io/ioutil"
 	"log"
 	"math"
+	"mime"
 	"net/http"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 	"sync"
@@ -24,6 +29,7 @@ type Crawler struct {
 	todo                 *jsonstore.JSONStore
 	trash                *jsonstore.JSONStore
 	programTime          time.Time
+	curFileList          map[string]bool
 	numberOfURLSParsed   int
 	BaseURL              string
 	KeywordsToExclude    []string
@@ -101,9 +107,21 @@ func (c *Crawler) saveKeyStores() (int, error) {
 	return numTodo, nil
 }
 
-func (c *Crawler) collectLinks(url string) error {
+func (c *Crawler) collectLinks(url string, download bool) error {
 	// Decrement the counter when the goroutine completes.
 	defer c.wg.Done()
+
+	if download {
+		// Check if it is already downloaded
+		if _, ok := c.curFileList[encodeURL(url)]; ok {
+			if c.Verbose {
+				log.Printf("Already downloaded %s", url)
+			}
+			c.todo.Delete(url)
+			c.done.Set(url, 0)
+			return nil
+		}
+	}
 
 	var foo, currentNumberOfTries int
 
@@ -131,65 +149,99 @@ func (c *Crawler) collectLinks(url string) error {
 	if resp.StatusCode == 200 {
 		c.numberOfURLSParsed++
 
-		links := collectlinks.All(resp.Body)
-		if c.Verbose {
-			log.Printf("Got %d links from %s\n", len(links), url)
-		}
-		for _, link := range links {
-			// Do not use query parameters
-			if strings.Contains(link, "?") {
-				link = strings.Split(link, "?")[0]
-			}
-			// Add the Base URL to everything if it doesn't have it
-			if !strings.Contains(link, "http") {
-				link = c.BaseURL + link
-			}
-			// Skip links that have a different Base URL
-			if !strings.Contains(link, c.BaseURL) {
-				if c.Verbose {
-					log.Printf("Skipping %s because it has a different base URL", link)
+		// Download, if downloading
+		if download {
+			contentType := resp.Header.Get("Content-type")
+			contentTypes, contentTypeErr := mime.ExtensionsByType(contentType)
+			extension := ""
+			if contentTypeErr == nil {
+				extension = contentTypes[0]
+				if extension == ".htm" || extension == ".hxa" {
+					extension = ".html"
 				}
-				continue
+			} else {
+				return err
 			}
-			// Normalize the link
-			parsedLink, _ := urlx.Parse(link)
-			normalizedLink, _ := urlx.Normalize(parsedLink)
-			if len(normalizedLink) == 0 {
-				continue
+			file_content, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				return err
 			}
 
-			// Exclude keywords, skip if any are found
-			foundExcludedKeyword := false
-			for _, keyword := range c.KeywordsToExclude {
-				if strings.Contains(normalizedLink, keyword) {
-					foundExcludedKeyword = true
+			var buf bytes.Buffer
+			writer := gzip.NewWriter(&buf)
+			writer.Write(file_content)
+			writer.Close()
+			filename := encodeURL(url) + extension + ".gz"
+			os.Mkdir("downloaded", 0755)
+			err = ioutil.WriteFile(path.Join("downloaded", filename), buf.Bytes(), 0755)
+			if err != nil {
+				return err
+			}
+
+			if c.Verbose {
+				log.Printf("Saved %s to %s", url, encodeURL(url)+extension)
+			}
+		} else {
+			links := collectlinks.All(resp.Body)
+			if c.Verbose {
+				log.Printf("Got %d links from %s\n", len(links), url)
+			}
+			for _, link := range links {
+				// Do not use query parameters
+				if strings.Contains(link, "?") {
+					link = strings.Split(link, "?")[0]
+				}
+				// Add the Base URL to everything if it doesn't have it
+				if !strings.Contains(link, "http") {
+					link = c.BaseURL + link
+				}
+				// Skip links that have a different Base URL
+				if !strings.Contains(link, c.BaseURL) {
 					if c.Verbose {
-						log.Printf("Skipping %s because contains %s", link, keyword)
+						log.Printf("Skipping %s because it has a different base URL", link)
 					}
-					break
+					continue
 				}
-			}
-			if foundExcludedKeyword {
-				continue
-			}
-
-			// Include keywords, skip if any are NOT found
-			foundIncludedKeyword := false
-			for _, keyword := range c.KeywordsToInclude {
-				if strings.Contains(normalizedLink, keyword) {
-					foundIncludedKeyword = true
-					break
+				// Normalize the link
+				parsedLink, _ := urlx.Parse(link)
+				normalizedLink, _ := urlx.Normalize(parsedLink)
+				if len(normalizedLink) == 0 {
+					continue
 				}
-			}
-			if !foundIncludedKeyword && len(c.KeywordsToInclude) > 0 {
-				continue
-			}
 
-			// Add the new link if its not queued anywhere else
-			if c.todo.Get(normalizedLink, &foo) != nil &&
-				c.done.Get(normalizedLink, &foo) != nil &&
-				c.trash.Get(normalizedLink, &foo) != nil {
-				c.todo.Set(normalizedLink, 0)
+				// Exclude keywords, skip if any are found
+				foundExcludedKeyword := false
+				for _, keyword := range c.KeywordsToExclude {
+					if strings.Contains(normalizedLink, keyword) {
+						foundExcludedKeyword = true
+						if c.Verbose {
+							log.Printf("Skipping %s because contains %s", link, keyword)
+						}
+						break
+					}
+				}
+				if foundExcludedKeyword {
+					continue
+				}
+
+				// Include keywords, skip if any are NOT found
+				foundIncludedKeyword := false
+				for _, keyword := range c.KeywordsToInclude {
+					if strings.Contains(normalizedLink, keyword) {
+						foundIncludedKeyword = true
+						break
+					}
+				}
+				if !foundIncludedKeyword && len(c.KeywordsToInclude) > 0 {
+					continue
+				}
+
+				// Add the new link if its not queued anywhere else
+				if c.todo.Get(normalizedLink, &foo) != nil &&
+					c.done.Get(normalizedLink, &foo) != nil &&
+					c.trash.Get(normalizedLink, &foo) != nil {
+					c.todo.Set(normalizedLink, 0)
+				}
 			}
 		}
 
@@ -211,10 +263,64 @@ func (c *Crawler) collectLinks(url string) error {
 	return nil
 }
 
+// Get a list of the done urls
+func (c *Crawler) GetLinks() []string {
+	doneMap := c.done.GetAll(regexp.MustCompile(`.*`))
+	todoMap := c.todo.GetAll(regexp.MustCompile(`.*`))
+	allLinks := make([]string, len(doneMap)+len(todoMap))
+	i := 0
+	for link := range doneMap {
+		allLinks[i] = link
+		i++
+	}
+	for link := range todoMap {
+		allLinks[i] = link
+		i++
+	}
+	return allLinks
+}
+
+// Crawl downloads the pages specified in the todo file
+func (c *Crawler) Download(urls []string) error {
+	// Initialize the keystores
+	c.done = new(jsonstore.JSONStore)
+	c.todo = new(jsonstore.JSONStore)
+	c.trash = new(jsonstore.JSONStore)
+
+	// Generate the todo set
+	for _, url := range urls {
+		c.todo.Set(url, 0)
+	}
+
+	// Determine which files have been downloaded
+	c.curFileList = make(map[string]bool)
+	files, err := ioutil.ReadDir("downloaded")
+	if err == nil {
+		for _, f := range files {
+			name := strings.Split(f.Name(), ".")[0]
+			if len(name) < 2 {
+				continue
+			}
+			c.curFileList[name] = true
+		}
+	}
+	download := true
+	return c.downloadOrCrawl(download)
+}
+
 // Crawl is the function to crawl with the set parameters
 func (c *Crawler) Crawl() error {
-	var err error
+	// Initialize/load the key stores
+	err := c.loadKeyStores()
+	if err != nil {
+		return err
+	}
 
+	download := false
+	return c.downloadOrCrawl(download)
+}
+
+func (c *Crawler) downloadOrCrawl(download bool) error {
 	// Generate the connection pool
 	tr := &http.Transport{
 		MaxIdleConns:       c.MaxNumberConnections,
@@ -222,12 +328,6 @@ func (c *Crawler) Crawl() error {
 		DisableCompression: true,
 	}
 	c.client = &http.Client{Transport: tr}
-
-	// Load the key stores
-	err = c.loadKeyStores()
-	if err != nil {
-		return err
-	}
 
 	c.programTime = time.Now()
 	c.numberOfURLSParsed = 0
@@ -241,7 +341,7 @@ func (c *Crawler) Crawl() error {
 				break
 			}
 			c.wg.Add(1)
-			go c.collectLinks(url)
+			go c.collectLinks(url, download)
 		}
 		c.wg.Wait()
 
