@@ -3,9 +3,7 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
-	"crypto/hmac"
-	"crypto/sha512"
-	"encoding/hex"
+	"encoding/base32"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -24,10 +22,8 @@ import (
 	"github.com/schollz/jsonstore"
 )
 
-func hash(data string) string {
-	h := hmac.New(sha512.New512_256, []byte("urls to save to disk"))
-	h.Write([]byte(data))
-	return hex.EncodeToString(h.Sum(nil))
+func encodeURL(url string) string {
+	return base32.StdEncoding.EncodeToString([]byte(url))
 }
 
 func crawl(baseURL string, keywordsToIgnore []string, keywordsToInclude []string, maxNumberWorkers int, connectionPool int, logging bool, download bool) {
@@ -68,7 +64,7 @@ func crawl(baseURL string, keywordsToIgnore []string, keywordsToInclude []string
 	}
 	if _, err = os.Stat("trashURLS.json"); err == nil {
 		var err2 error
-		doneURLS, err2 = jsonstore.Open("trashURLS.json")
+		trashURLS, err2 = jsonstore.Open("trashURLS.json")
 		if err2 != nil {
 			panic(err)
 		}
@@ -97,7 +93,7 @@ func crawl(baseURL string, keywordsToIgnore []string, keywordsToInclude []string
 		numWorkers := 0
 		for URLToDo := range todoURLS.GetAll(regexp.MustCompile(`.*`)) {
 			if download {
-				if _, ok := curFileList[hash(URLToDo)]; ok {
+				if _, ok := curFileList[encodeURL(URLToDo)]; ok {
 					if logging {
 						log.Printf("Already downloaded %s", URLToDo)
 					}
@@ -153,7 +149,7 @@ func crawl(baseURL string, keywordsToIgnore []string, keywordsToInclude []string
 							writer := gzip.NewWriter(&buf)
 							writer.Write(file_content)
 							writer.Close()
-							filename := hash(url) + extension + ".gz"
+							filename := encodeURL(url) + extension + ".gz"
 
 							err = ioutil.WriteFile(filename, buf.Bytes(), 0755)
 							if err != nil {
@@ -161,7 +157,7 @@ func crawl(baseURL string, keywordsToIgnore []string, keywordsToInclude []string
 							}
 
 							if logging {
-								log.Printf("Saved %s to %s", url, hash(url)+extension)
+								log.Printf("Saved %s to %s", url, encodeURL(url)+extension)
 							}
 							todoURLS.Delete(url)
 							doneURLS.Set(url, currentNumberOfTries)
