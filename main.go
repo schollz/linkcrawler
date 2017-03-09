@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/schollz/crawler/lib"
+	"github.com/schollz/linkcrawler/lib"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -42,6 +42,11 @@ func main() {
 			Value: 100,
 			Usage: "Max number of connections in HTTP pool",
 		},
+		cli.IntFlag{
+			Name:  "save,s",
+			Value: 10,
+			Usage: "Save every `X` iterations",
+		},
 		cli.BoolFlag{
 			Name:  "verbose",
 			Usage: "turn on logging",
@@ -68,7 +73,7 @@ func main() {
 				fmt.Println(c.GlobalString("lang"))
 				fmt.Println(url)
 
-				// Setup crawler
+				// Setup crawler to crawl
 				crawler, err := crawler.New(url)
 				if err != nil {
 					return err
@@ -79,6 +84,7 @@ func main() {
 				crawler.MaxNumberConnections = c.GlobalInt("conn")
 				crawler.MaxNumberWorkers = c.GlobalInt("workers")
 				crawler.Verbose = c.GlobalBool("verbose")
+				crawler.IterationsEverySave = c.GlobalInt("save")
 				if len(c.GlobalString("include")) > 0 {
 					crawler.KeywordsToInclude = strings.Split(strings.ToLower(c.GlobalString("include")), ",")
 				}
@@ -109,7 +115,13 @@ func main() {
 					return nil
 				}
 
-				// Setup crawler
+				b, err := ioutil.ReadFile(fileWithListOfURLS)
+				if err != nil {
+					return err
+				}
+				links := strings.Split(string(b), "\n")
+
+				// Setup crawler to download
 				crawler, err := crawler.New(fileWithListOfURLS)
 				if err != nil {
 					return err
@@ -120,18 +132,13 @@ func main() {
 				crawler.MaxNumberConnections = c.GlobalInt("conn")
 				crawler.MaxNumberWorkers = c.GlobalInt("workers")
 				crawler.Verbose = c.GlobalBool("verbose")
+				crawler.IterationsEverySave = c.GlobalInt("save")
 				if len(c.GlobalString("include")) > 0 {
 					crawler.KeywordsToInclude = strings.Split(strings.ToLower(c.GlobalString("include")), ",")
 				}
 				if len(c.GlobalString("exclude")) > 0 {
 					crawler.KeywordsToExclude = strings.Split(strings.ToLower(c.GlobalString("exclude")), ",")
 				}
-
-				b, err := ioutil.ReadFile(fileWithListOfURLS)
-				if err != nil {
-					return err
-				}
-				links := strings.Split(string(b), "\n")
 				err = crawler.Download(links)
 				if err != nil {
 					return err

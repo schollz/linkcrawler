@@ -36,6 +36,7 @@ type Crawler struct {
 	KeywordsToInclude    []string
 	MaxNumberWorkers     int
 	MaxNumberConnections int
+	IterationsEverySave  int
 	Verbose              bool
 	FilePrefix           string
 }
@@ -363,7 +364,7 @@ func (c *Crawler) downloadOrCrawl(download bool) error {
 		c.wg.Wait()
 
 		// Save every 5th iteration
-		if math.Mod(float64(it), float64(1)) == 0 {
+		if math.Mod(float64(it), float64(c.IterationsEverySave)) == 0 {
 			numTodo, err2 := c.saveKeyStores(download)
 			if err2 != nil || numTodo == 0 {
 				return err2
