@@ -1,8 +1,7 @@
-# gogetlinks
+# linkcrawler
 
-Go get all the links of a website.
+Persistent and threaded web crawler that can either A) download a list of all links on a website or B) download a list of websites. It is threaded and uses connection pools so it is fast. It is persistent because it periodically dumps its state to JSON files which can be restarted from at any time.
 
-Saves frequently so it can be restarted.
 
 ```
 $ go build 
