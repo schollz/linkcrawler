@@ -53,6 +53,7 @@ func New(url string) (*Crawler, error) {
 	c.MaxNumberConnections = 100
 	c.MaxNumberWorkers = 100
 	c.FilePrefix = encodeURL(url)
+	c.IterationsEverySave = 5
 	return c, nil
 }
 
