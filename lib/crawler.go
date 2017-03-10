@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/boltdb/bolt"
+	humanize "github.com/dustin/go-humanize"
 	"github.com/goware/urlx"
 	"github.com/jackdanger/collectlinks"
 	"github.com/schollz/archiver"
@@ -309,6 +310,8 @@ func (c *Crawler) downloadOrCrawl(download bool) error {
 		}
 		c.wg.Wait()
 	}
+	c.numToDo = 0
+	c.printStats()
 	return nil
 }
 
@@ -322,13 +325,23 @@ func round(f float64) int {
 func (c *Crawler) contantlyPrintStats() {
 	for {
 		time.Sleep(time.Duration(int32(c.TimeIntervalToPrintStats)) * time.Second)
-		URLSPerSecond := round(float64(c.numberOfURLSParsed) / float64(time.Since(c.programTime).Seconds()))
-		fmt.Printf("%s\t%d parsed (%d/s), %d todo, %d done, %d trashed\n", c.programTime.String(), c.numberOfURLSParsed, URLSPerSecond, c.numToDo, c.numDone, c.numTrash)
 		if c.numToDo == 0 {
 			fmt.Println("Finished")
 			return
 		}
+		c.printStats()
 	}
+}
+
+func (c *Crawler) printStats() {
+	URLSPerSecond := round(float64(c.numberOfURLSParsed) / float64(time.Since(c.programTime).Seconds()))
+	fmt.Printf("%s\t%s parsed (%d/s), %s todo, %s done, %s trashed\n",
+		c.programTime.String(),
+		humanize.Comma(int64(c.numberOfURLSParsed)),
+		URLSPerSecond,
+		humanize.Comma(int64(c.numToDo)),
+		humanize.Comma(int64(c.numDone)),
+		humanize.Comma(int64(c.numTrash)))
 }
 
 func (c *Crawler) contantlyPerformBackup() {
