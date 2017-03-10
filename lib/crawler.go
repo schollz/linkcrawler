@@ -332,16 +332,16 @@ func (c *Crawler) contantlyPrintStats() {
 }
 
 func (c *Crawler) contantlyPerformBackup() {
-	clock := time.Tick(time.Duration(int32(c.TimeIntervalToBackupDB)) * time.Second)
-	for tick := range clock {
+	for {
+		time.Sleep(time.Duration(int32(c.TimeIntervalToBackupDB)) * time.Second)
 		os.Remove(c.FilePrefix + ".db.zip")
 		db, _ := bolt.Open(c.FilePrefix+".db", 0600, &bolt.Options{Timeout: 10 * time.Second})
 		err := archiver.Zip.Make(c.FilePrefix+".db.zip", []string{c.FilePrefix + ".db"})
 		db.Close()
 		if err == nil {
-			fmt.Printf("%s\tBacked up DB\n", tick.String())
+			fmt.Printf("%s\tBacked up DB\n", c.programTime.String())
 		} else {
-			fmt.Printf("%s\nError backing up DB:%s\n", tick.String(), err.Error())
+			fmt.Printf("%s\nError backing up DB:%s\n", c.programTime.String(), err.Error())
 		}
 	}
 }
