@@ -320,10 +320,10 @@ func round(f float64) int {
 }
 
 func (c *Crawler) contantlyPrintStats() {
-	clock := time.Tick(time.Duration(int32(c.TimeIntervalToPrintStats)) * time.Second)
-	for tick := range clock {
+	for {
+		time.Sleep(time.Duration(int32(c.TimeIntervalToPrintStats)) * time.Second)
 		URLSPerSecond := round(float64(c.numberOfURLSParsed) / float64(time.Since(c.programTime).Seconds()))
-		fmt.Printf("%s\t%d parsed (%d/s), %d todo, %d done, %d trashed\n", tick.String(), c.numberOfURLSParsed, URLSPerSecond, c.numToDo, c.numDone, c.numTrash)
+		fmt.Printf("%s\t%d parsed (%d/s), %d todo, %d done, %d trashed\n", c.programTime.String(), c.numberOfURLSParsed, URLSPerSecond, c.numToDo, c.numDone, c.numTrash)
 		if c.numToDo == 0 {
 			fmt.Println("Finished")
 			return
