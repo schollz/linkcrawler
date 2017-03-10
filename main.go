@@ -43,9 +43,14 @@ func main() {
 			Usage: "Max number of connections in HTTP pool",
 		},
 		cli.IntFlag{
-			Name:  "save,s",
-			Value: 10,
-			Usage: "Save every `X` iterations",
+			Name:  "stats,s",
+			Value: 1,
+			Usage: "Print stats every `X` seconds",
+		},
+		cli.IntFlag{
+			Name:  "backup,b",
+			Value: 5,
+			Usage: "Backup DB every `X` minutes",
 		},
 		cli.BoolFlag{
 			Name:  "verbose",
@@ -84,7 +89,8 @@ func main() {
 				crawler.MaxNumberConnections = c.GlobalInt("conn")
 				crawler.MaxNumberWorkers = c.GlobalInt("workers")
 				crawler.Verbose = c.GlobalBool("verbose")
-				crawler.IterationsEverySave = c.GlobalInt("save")
+				crawler.TimeIntervalToPrintStats = c.GlobalInt("stats")
+				crawler.TimeIntervalToBackupDB = c.GlobalInt("backup")
 				if len(c.GlobalString("include")) > 0 {
 					crawler.KeywordsToInclude = strings.Split(strings.ToLower(c.GlobalString("include")), ",")
 				}
@@ -95,7 +101,10 @@ func main() {
 				if err != nil {
 					return err
 				}
-				linkArray := crawler.GetLinks()
+				linkArray, err := crawler.GetLinks()
+				if err != nil {
+					return err
+				}
 				links := strings.Join(linkArray, "\n")
 				ioutil.WriteFile("links.txt", []byte(links), 0755)
 				fmt.Printf("%d links written to links.txt", len(linkArray))
@@ -132,7 +141,8 @@ func main() {
 				crawler.MaxNumberConnections = c.GlobalInt("conn")
 				crawler.MaxNumberWorkers = c.GlobalInt("workers")
 				crawler.Verbose = c.GlobalBool("verbose")
-				crawler.IterationsEverySave = c.GlobalInt("save")
+				crawler.TimeIntervalToPrintStats = c.GlobalInt("stats")
+				crawler.TimeIntervalToBackupDB = c.GlobalInt("backup")
 				if len(c.GlobalString("include")) > 0 {
 					crawler.KeywordsToInclude = strings.Split(strings.ToLower(c.GlobalString("include")), ",")
 				}
