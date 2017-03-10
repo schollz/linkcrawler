@@ -113,7 +113,7 @@ func (c *Crawler) saveKeyStores(download bool) (int, error) {
 		filePrefix = filePrefix + "_crawl"
 	}
 
-	tempPrefix := randStringBytesMaskImprSrc(10)
+	tempPrefix := "temp_" + filePrefix
 	err1 := jsonstore.Save(c.done, tempPrefix+"_done.json")
 	defer os.Remove(tempPrefix + "_done.json")
 	err2 := jsonstore.Save(c.todo, tempPrefix+"_todo.json")
