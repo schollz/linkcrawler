@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/base32"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"math"
+	"math/rand"
 	"mime"
 	"net/http"
 	"os"
@@ -109,10 +112,14 @@ func (c *Crawler) saveKeyStores(download bool) (int, error) {
 	} else {
 		filePrefix = filePrefix + "_crawl"
 	}
-	startSave := time.Now()
-	err1 := jsonstore.Save(c.done, filePrefix+"_done.json")
-	err2 := jsonstore.Save(c.todo, filePrefix+"_todo.json")
-	err3 := jsonstore.Save(c.trash, filePrefix+"_trash.json")
+
+	tempPrefix := randStringBytesMaskImprSrc(10)
+	err1 := jsonstore.Save(c.done, tempPrefix+"_done.json")
+	defer os.Remove(tempPrefix + "_done.json")
+	err2 := jsonstore.Save(c.todo, tempPrefix+"_todo.json")
+	defer os.Remove(tempPrefix + "_todo.json")
+	err3 := jsonstore.Save(c.trash, tempPrefix+"_trash.json")
+	defer os.Remove(tempPrefix + "_trash.json")
 	if err1 != nil {
 		return -1, err1
 	} else if err2 != nil {
@@ -120,6 +127,10 @@ func (c *Crawler) saveKeyStores(download bool) (int, error) {
 	} else if err3 != nil {
 		return -1, err3
 	}
+	startSave := time.Now()
+	copyFileContents(tempPrefix+"_done.json", filePrefix+"_done.json")
+	copyFileContents(tempPrefix+"_todo.json", filePrefix+"_todo.json")
+	copyFileContents(tempPrefix+"_trash.json", filePrefix+"_trash.json")
 	log.Printf("Saved state in %s", time.Since(startSave).String())
 	parsingTime := time.Since(c.programTime)
 	URLperSecond := int(float64(c.numberOfURLSParsed) / parsingTime.Seconds())
@@ -379,4 +390,91 @@ func (c *Crawler) downloadOrCrawl(download bool) error {
 			}
 		}
 	}
+}
+
+// copyFile copies a file from src to dst. If src and dst files exist, and are
+// the same, then return success. Otherise, attempt to create a hard link
+// between the two files. If that fail, copy the file contents from src to dst.
+func copyFile(src, dst string) (err error) {
+	sfi, err := os.Stat(src)
+	if err != nil {
+		return
+	}
+	if !sfi.Mode().IsRegular() {
+		// cannot copy non-regular files (e.g., directories,
+		// symlinks, devices, etc.)
+		return fmt.Errorf("CopyFile: non-regular source file %s (%q)", sfi.Name(), sfi.Mode().String())
+	}
+	dfi, err := os.Stat(dst)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return
+		}
+	} else {
+		if !(dfi.Mode().IsRegular()) {
+			return fmt.Errorf("CopyFile: non-regular destination file %s (%q)", dfi.Name(), dfi.Mode().String())
+		}
+		if os.SameFile(sfi, dfi) {
+			return
+		}
+	}
+	if err = os.Link(src, dst); err == nil {
+		return
+	}
+	err = copyFileContents(src, dst)
+	return
+}
+
+// copyFileContents copies the contents of the file named src to the file named
+// by dst. The file will be created if it does not already exist. If the
+// destination file exists, all it's contents will be replaced by the contents
+// of the source file.
+func copyFileContents(src, dst string) (err error) {
+	in, err := os.Open(src)
+	if err != nil {
+		return
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return
+	}
+	defer func() {
+		cerr := out.Close()
+		if err == nil {
+			err = cerr
+		}
+	}()
+	if _, err = io.Copy(out, in); err != nil {
+		return
+	}
+	err = out.Sync()
+	return
+}
+
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const (
+	letterIdxBits = 6                    // 6 bits to represent a letter index
+	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
+	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
+)
+
+var src = rand.NewSource(time.Now().UnixNano())
+
+func randStringBytesMaskImprSrc(n int) string {
+	b := make([]byte, n)
+	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
+	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
+		if remain == 0 {
+			cache, remain = src.Int63(), letterIdxMax
+		}
+		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
+			b[i] = letterBytes[idx]
+			i--
+		}
+		cache >>= letterIdxBits
+		remain--
+	}
+
+	return string(b)
 }
