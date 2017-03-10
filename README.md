@@ -1,5 +1,8 @@
 # linkcrawler
 
+![Coverage](https://img.shields.io/badge/coverage-68%25-green.svg?style=flat-square)
+[![Doc](http://img.shields.io/badge/godoc-reference-5272B4.svg?style=flat-square)](https://godoc.org/github.com/schollz/linkcrawler/lib)
+
 Persistent and threaded web crawler that can either
 
   1. crawl a website and create a list of all links OR
