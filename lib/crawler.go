@@ -127,6 +127,9 @@ func (c *Crawler) saveKeyStores(download bool) (int, error) {
 	} else if err3 != nil {
 		return -1, err3
 	}
+	// Copy the temp files after writing decreases the time that the program is susceptible to losing data
+	// Just writing files on Raspberry Pi took 5-7 Seconds
+	// Writing files to a temp file and then copying takes ~1-2 seconds
 	startSave := time.Now()
 	copyFileContents(tempPrefix+"_done.json", filePrefix+"_done.json")
 	copyFileContents(tempPrefix+"_todo.json", filePrefix+"_todo.json")
