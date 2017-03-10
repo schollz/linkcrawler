@@ -109,7 +109,7 @@ func (c *Crawler) saveKeyStores(download bool) (int, error) {
 	} else {
 		filePrefix = filePrefix + "_crawl"
 	}
-
+	startSave := time.Now()
 	err1 := jsonstore.Save(c.done, filePrefix+"_done.json")
 	err2 := jsonstore.Save(c.todo, filePrefix+"_todo.json")
 	err3 := jsonstore.Save(c.trash, filePrefix+"_trash.json")
@@ -120,6 +120,7 @@ func (c *Crawler) saveKeyStores(download bool) (int, error) {
 	} else if err3 != nil {
 		return -1, err3
 	}
+	log.Printf("Saved state in %s", time.Since(startSave).String())
 	parsingTime := time.Since(c.programTime)
 	URLperSecond := int(float64(c.numberOfURLSParsed) / parsingTime.Seconds())
 	numTodo := len(c.todo.GetAll(regexp.MustCompile(`.*`)))
