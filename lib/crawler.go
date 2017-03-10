@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/boltdb/bolt"
 	"github.com/goware/urlx"
 	"github.com/jackdanger/collectlinks"
 	"github.com/schollz/archiver"
@@ -334,7 +335,9 @@ func (c *Crawler) contantlyPerformBackup() {
 	clock := time.Tick(time.Duration(int32(c.TimeIntervalToBackupDB)) * time.Second)
 	for tick := range clock {
 		os.Remove(c.FilePrefix + ".db.zip")
+		db, _ := bolt.Open(c.FilePrefix+".db", 0600, &bolt.Options{Timeout: 10 * time.Second})
 		err := archiver.Zip.Make(c.FilePrefix+".db.zip", []string{c.FilePrefix + ".db"})
+		db.Close()
 		if err == nil {
 			fmt.Printf("%s\tBacked up DB\n", tick.String())
 		} else {
