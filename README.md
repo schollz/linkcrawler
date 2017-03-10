@@ -1,6 +1,11 @@
 # linkcrawler
 
-Persistent and threaded web crawler that can either A) download a list of all links on a website or B) download a list of websites. It is threaded and uses connection pools so it is fast. It is persistent because it periodically dumps its state to JSON files which it will use to re-initialize if it stops.
+Persistent and threaded web crawler that can either
+
+  1. crawl a website and create a list of all links OR
+  2. download all websites in a list to a gzipped file.
+
+*linkcrawler* is threaded and uses connection pools so it is fast. It is persistent because it periodically dumps its state to JSON files which it will use to re-initialize if interrupted.
 
 # Install
 
@@ -15,15 +20,15 @@ To capture all the links on a website:
 ```
 $ linkcrawler crawl http://rpiai.com
 http://rpiai.com
-2017/03/09 07:54:32 Parsed 32 urls in 2.2049343s (0.06890 seconds / URL), 32/0
+2017/03/09 21:37:35 Parsed 32 urls in 2.8017983s (11 URLs/s). Finished: 32, Todo: 0
 32 links written to links.txt
 ```
 
 To download gzipped webpages:
 ```
 $ linkcrawler download links.txt
-2017/03/09 07:55:51 Parsed 32 urls in 1.1709399s (0.03659 seconds / URL), 32/0
-$ ls downloaded | head -n 2
+2017/03/09 21:38:22 Parsed 32 urls in 655.7632ms (48 URLs/s). Finished: 32, Todo: 0
+Finished downloading$ ls downloaded | head -n 2
 NB2HI4B2F4XXE4DJMFUS4Y3PNU======.html.gz
 NB2HI4B2F4XXE4DJMFUS4Y3PNUXQ====.html.gz
 ```
@@ -31,7 +36,7 @@ NB2HI4B2F4XXE4DJMFUS4Y3PNUXQ====.html.gz
 Downloads are saved into a folder `downloaded` with url of link encoded in Base32.
 
 
-## Persistence 
+## Persistence
 
 The current state of the crawler is saved into three JSON files (`XYZ_crawl_done|todo|trash.json`, where `XYZ` is the link/file encoded as Base32). If the crawler is interrupted, you can simply run the command again and it will restart using the respective files as the state. You can also remove these files to have it start from scratch. The amount of persistence can be controlled using `-save`:
 
@@ -51,6 +56,6 @@ http://rpiai.com
 32 links written to links.txt
 ```
 
-# License 
+# License
 
 MIT
