@@ -309,6 +309,12 @@ func (c *Crawler) downloadOrCrawl(download bool) error {
 			go c.collectLinks(url, download)
 		}
 		c.wg.Wait()
+
+		if math.Mod(float64(it), 100) == 0 {
+			// reload the configuration
+			fmt.Println("Reloading the HTTP pool")
+			c.client = &http.Client{Transport: tr}
+		}
 	}
 	c.numToDo = 0
 	c.printStats()
