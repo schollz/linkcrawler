@@ -3,6 +3,7 @@ package crawler
 import (
 	"encoding/base32"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -56,8 +57,12 @@ func Dump(db string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(strings.Join(links, "\n"))
 
+	err = ioutil.WriteFile(db+".txt", []byte(strings.Join(links, "\n")), 0755)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Wrote %d links to %s\n", len(links), db+".txt")
 	return nil
 }
 
