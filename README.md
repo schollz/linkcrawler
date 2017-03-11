@@ -47,7 +47,23 @@ Downloads are saved into a folder `downloaded` with url of link encoded in Base3
 
 ## Persistence
 
-The current state of the crawler is saved into a BoltDB database and also backed up in to a Zip-archive. If the crawler is interrupted, you can simply run the command again and it will restart from the last state. To dump the current database, just use
+The current state of the crawler is saved into a local database and also backed up into a Zip-archive periodically. If the crawler is interrupted, you can simply run the command again and it will restart from the last state:
+
+```bash
+$ linkcrawler.exe crawl http://rpiai.com
+http://rpiai.com
+2017/03/11 08:47:13 18 parsed (6/s), 23 todo, 17 done, 0 trashed
+Ctl+C
+$ linkcrawler.exe crawl http://rpiai.com  # It will read the previous DB
+http://rpiai.com
+2017/03/11 08:47:18 13 parsed (13/s), 15 todo, 19 done, 5 trashed # Continued!
+Got links downloaded from 'http://rpiai.com'
+Wrote 32 links to NB2HI4B2F4XXE4DJMFUS4Y3PNU======.db.txt
+```
+
+## Dump
+
+To dump the current database, just use
 
 ```bash
 $ linkcrawler.exe dump NB2HI4B2F4XXE4DJMFUS4Y3PNU======.db
