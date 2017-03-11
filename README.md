@@ -1,6 +1,6 @@
 # linkcrawler
 
-![Coverage](https://img.shields.io/badge/coverage-68%25-green.svg?style=flat-square)
+![Coverage](https://img.shields.io/badge/coverage-76%25-green.svg?style=flat-square)
 [![Doc](http://img.shields.io/badge/godoc-reference-5272B4.svg?style=flat-square)](https://godoc.org/github.com/schollz/linkcrawler/lib)
 
 Persistent and threaded web crawler that can either
@@ -18,46 +18,43 @@ go get github.com/schollz/linkcrawler/...
 
 # Run
 
+## Crawl
+
 To capture all the links on a website:
 
-```
+```bash
 $ linkcrawler crawl http://rpiai.com
 http://rpiai.com
-2017/03/09 21:37:35 Parsed 32 urls in 2.8017983s (11 URLs/s). Finished: 32, Todo: 0
-32 links written to links.txt
+2017/03/11 08:38:02 32 parsed (5/s), 0 todo, 32 done, 3 trashed
+Got links downloaded from 'http://rpiai.com'
+Wrote 32 links to NB2HI4B2F4XXE4DJMFUS4Y3PNU======.db.txt
 ```
 
-To download gzipped webpages:
-```
-$ linkcrawler download links.txt
-2017/03/09 21:38:22 Parsed 32 urls in 655.7632ms (48 URLs/s). Finished: 32, Todo: 0
-Finished downloading$ ls downloaded | head -n 2
+## Download
+
+To download gzipped webpages from a list of websites:
+
+```bash
+$ linkcrawler download *.txt
+2017/03/11 08:41:20 32 parsed (31/s), 0 todo, 32 done, 0 trashed
+Finished downloading
+$ ls downloaded | head -n 2
 NB2HI4B2F4XXE4DJMFUS4Y3PNU======.html.gz
 NB2HI4B2F4XXE4DJMFUS4Y3PNUXQ====.html.gz
 ```
 
 Downloads are saved into a folder `downloaded` with url of link encoded in Base32.
 
-
 ## Persistence
 
-The current state of the crawler is saved into three JSON files (`XYZ_crawl_done|todo|trash.json`, where `XYZ` is the link/file encoded as Base32). If the crawler is interrupted, you can simply run the command again and it will restart using the respective files as the state. You can also remove these files to have it start from scratch. The amount of persistence can be controlled using `-save`:
+The current state of the crawler is saved into a BoltDB database and also backed up in to a Zip-archive. If the crawler is interrupted, you can simply run the command again and it will restart from the last state. To dump the current database, just use
 
+```bash
+$ linkcrawler.exe dump NB2HI4B2F4XXE4DJMFUS4Y3PNU======.db
+Got links downloaded from 'http://rpiai.com'
+Wrote 32 links to NB2HI4B2F4XXE4DJMFUS4Y3PNU======.db.txt
 ```
-$ linkcrawler -save 1 crawl http://rpiai.com
-http://rpiai.com
-2017/03/09 08:00:15 Parsed 1 urls in 385.4047ms (0.38540 seconds / URL), 1/17
-2017/03/09 08:00:16 Parsed 18 urls in 1.0933271s (0.06074 seconds / URL), 18/21
-Ctl+C
-$ linkcrawler -save 1 crawl http://rpiai.com
-http://rpiai.com
-2017/03/09 08:00:19 Parsed 14 urls in 321.9438ms (0.02300 seconds / URL), 32/3
-2017/03/09 08:00:19 Parsed 14 urls in 510.4331ms (0.03646 seconds / URL), 32/3
-2017/03/09 08:00:20 Parsed 14 urls in 714.087ms (0.05101 seconds / URL), 32/3
-2017/03/09 08:00:20 Parsed 14 urls in 904.1514ms (0.06458 seconds / URL), 32/1
-2017/03/09 08:00:20 Parsed 14 urls in 1.0947706s (0.07820 seconds / URL), 32/0
-32 links written to links.txt
-```
+
 
 # License
 

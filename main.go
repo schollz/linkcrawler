@@ -79,36 +79,29 @@ func main() {
 				fmt.Println(url)
 
 				// Setup crawler to crawl
-				crawler, err := crawler.New(url)
+				craw, err := crawler.New(url)
 				if err != nil {
 					return err
 				}
 				if c.GlobalString("prefix") != "" {
-					crawler.FilePrefix = c.GlobalString("prefix")
+					craw.FilePrefix = c.GlobalString("prefix")
 				}
-				crawler.MaxNumberConnections = c.GlobalInt("conn")
-				crawler.MaxNumberWorkers = c.GlobalInt("workers")
-				crawler.Verbose = c.GlobalBool("verbose")
-				crawler.TimeIntervalToPrintStats = c.GlobalInt("stats")
-				crawler.TimeIntervalToBackupDB = c.GlobalInt("backup")
+				craw.MaxNumberConnections = c.GlobalInt("conn")
+				craw.MaxNumberWorkers = c.GlobalInt("workers")
+				craw.Verbose = c.GlobalBool("verbose")
+				craw.TimeIntervalToPrintStats = c.GlobalInt("stats")
+				craw.TimeIntervalToBackupDB = c.GlobalInt("backup")
 				if len(c.GlobalString("include")) > 0 {
-					crawler.KeywordsToInclude = strings.Split(strings.ToLower(c.GlobalString("include")), ",")
+					craw.KeywordsToInclude = strings.Split(strings.ToLower(c.GlobalString("include")), ",")
 				}
 				if len(c.GlobalString("exclude")) > 0 {
-					crawler.KeywordsToExclude = strings.Split(strings.ToLower(c.GlobalString("exclude")), ",")
+					craw.KeywordsToExclude = strings.Split(strings.ToLower(c.GlobalString("exclude")), ",")
 				}
-				err = crawler.Crawl()
+				err = craw.Crawl()
 				if err != nil {
 					return err
 				}
-				linkArray, err := crawler.GetLinks()
-				if err != nil {
-					return err
-				}
-				links := strings.Join(linkArray, "\n")
-				ioutil.WriteFile("links.txt", []byte(links), 0755)
-				fmt.Printf("%d links written to links.txt", len(linkArray))
-				return nil
+				return crawler.Dump(craw.FilePrefix + ".db")
 			},
 		},
 		{
@@ -131,31 +124,45 @@ func main() {
 				links := strings.Split(string(b), "\n")
 
 				// Setup crawler to download
-				crawler, err := crawler.New(fileWithListOfURLS)
+				craw, err := crawler.New(fileWithListOfURLS)
 				if err != nil {
 					return err
 				}
 				if c.GlobalString("prefix") != "" {
-					crawler.FilePrefix = c.GlobalString("prefix")
+					craw.FilePrefix = c.GlobalString("prefix")
 				}
-				crawler.MaxNumberConnections = c.GlobalInt("conn")
-				crawler.MaxNumberWorkers = c.GlobalInt("workers")
-				crawler.Verbose = c.GlobalBool("verbose")
-				crawler.TimeIntervalToPrintStats = c.GlobalInt("stats")
-				crawler.TimeIntervalToBackupDB = c.GlobalInt("backup")
+				craw.MaxNumberConnections = c.GlobalInt("conn")
+				craw.MaxNumberWorkers = c.GlobalInt("workers")
+				craw.Verbose = c.GlobalBool("verbose")
+				craw.TimeIntervalToPrintStats = c.GlobalInt("stats")
+				craw.TimeIntervalToBackupDB = c.GlobalInt("backup")
 				if len(c.GlobalString("include")) > 0 {
-					crawler.KeywordsToInclude = strings.Split(strings.ToLower(c.GlobalString("include")), ",")
+					craw.KeywordsToInclude = strings.Split(strings.ToLower(c.GlobalString("include")), ",")
 				}
 				if len(c.GlobalString("exclude")) > 0 {
-					crawler.KeywordsToExclude = strings.Split(strings.ToLower(c.GlobalString("exclude")), ",")
+					craw.KeywordsToExclude = strings.Split(strings.ToLower(c.GlobalString("exclude")), ",")
 				}
-				err = crawler.Download(links)
+				err = craw.Download(links)
 				if err != nil {
 					fmt.Printf("Error downloading: %s", err.Error())
 					return err
 				}
 				fmt.Println("Finished downloading")
 				return nil
+			},
+		},
+		{
+			Name:  "dump",
+			Usage: "dump a list of links crawled from db",
+			Action: func(c *cli.Context) error {
+				dbFile := ""
+				if c.NArg() > 0 {
+					dbFile = c.Args().Get(0)
+				} else {
+					fmt.Println("Must specify database")
+					return nil
+				}
+				return crawler.Dump(dbFile)
 			},
 		},
 	}

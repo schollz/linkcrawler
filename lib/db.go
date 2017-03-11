@@ -47,8 +47,8 @@ func Dump(db string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(string(originalLink))
-	crawl, err := New("http://rpiai.com/")
+	fmt.Printf("Got links downloaded from '%s'\n", string(originalLink))
+	crawl, err := New(string(originalLink))
 	if err != nil {
 		return err
 	}
