@@ -1,9 +1,11 @@
 package crawler
 
 import (
+	"encoding/base32"
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/boltdb/bolt"
 )
@@ -36,6 +38,27 @@ func (c *Crawler) getNLinksTodo(n int) ([]string, error) {
 		links = links[0:i]
 	}
 	return links, nil
+}
+
+func Dump(db string) error {
+	dbnameBase32 := strings.Split(db, ".")[0]
+	originalLink, err := base32.StdEncoding.DecodeString(dbnameBase32)
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(originalLink))
+	crawl, err := New("http://rpiai.com/")
+	if err != nil {
+		return err
+	}
+
+	links, err := crawl.GetLinks()
+	if err != nil {
+		return err
+	}
+	fmt.Println(strings.Join(links, "\n"))
+
+	return nil
 }
 
 // GetLinks a list of the done urls

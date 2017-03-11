@@ -30,4 +30,9 @@ func TestGeneral(t *testing.T) {
 	if err != nil {
 		t.Errorf("Problem downloading: %s", err.Error())
 	}
+
+	err = Dump("NB2HI4B2F4XXE4DJMFUS4Y3PNUXQ====.db")
+	if err != nil {
+		t.Errorf("Problem dumping: %s", err.Error())
+	}
 }
