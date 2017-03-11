@@ -335,8 +335,7 @@ func (c *Crawler) contantlyPrintStats() {
 
 func (c *Crawler) printStats() {
 	URLSPerSecond := round(float64(c.numberOfURLSParsed) / float64(time.Since(c.programTime).Seconds()))
-	fmt.Printf("%s\t%s parsed (%d/s), %s todo, %s done, %s trashed\n",
-		c.programTime.String(),
+	log.Printf("%s parsed (%d/s), %s todo, %s done, %s trashed\n",
 		humanize.Comma(int64(c.numberOfURLSParsed)),
 		URLSPerSecond,
 		humanize.Comma(int64(c.numToDo)),
