@@ -63,7 +63,7 @@ func New(url string) (*Crawler, error) {
 	return c, c.initDB()
 }
 
-func (c *Crawler) collectLinks(url string, download bool) error {
+func (c *Crawler) downloadOrCrawlLink(url string, download bool) error {
 	// Decrement the counter when the goroutine completes.
 	defer c.wg.Done()
 
@@ -133,14 +133,14 @@ func (c *Crawler) collectLinks(url string, download bool) error {
 			} else {
 				return err
 			}
-			file_content, err := ioutil.ReadAll(resp.Body)
+			fileContent, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
 				return err
 			}
 
 			var buf bytes.Buffer
 			writer := gzip.NewWriter(&buf)
-			writer.Write(file_content)
+			writer.Write(fileContent)
 			writer.Close()
 			filename := encodeURL(url) + extension + ".gz"
 			os.Mkdir("downloaded", 0755)
@@ -168,9 +168,9 @@ func (c *Crawler) collectLinks(url string, download bool) error {
 				}
 				// Skip links that have a different Base URL
 				if !strings.Contains(link, c.BaseURL) {
-					if c.Verbose {
-						log.Printf("Skipping %s because it has a different base URL", link)
-					}
+					// if c.Verbose {
+					// 	log.Printf("Skipping %s because it has a different base URL", link)
+					// }
 					continue
 				}
 				// Normalize the link
@@ -306,7 +306,7 @@ func (c *Crawler) downloadOrCrawl(download bool) error {
 		}
 		for _, url := range linksToDo {
 			c.wg.Add(1)
-			go c.collectLinks(url, download)
+			go c.downloadOrCrawlLink(url, download)
 		}
 		c.wg.Wait()
 
