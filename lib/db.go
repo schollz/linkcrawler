@@ -9,10 +9,25 @@ import (
 	"strings"
 
 	"github.com/boltdb/bolt"
+	"github.com/schollz/boltdb-server/lib"
 )
 
-// GetLinks a list of the done urls
+// GetLinks a list of the todo urls
 func (c *Crawler) getNLinksTodo(n int) ([]string, error) {
+	if c.Remote != "" {
+		conn, err := connect.Open(c.Remote, c.FilePrefix, c.Username, c.Password)
+		if err != nil {
+			return []string{}, err
+		}
+		linkMap, err := conn.MoveTopN("todo", "doing", n)
+		links := make([]string, len(linkMap))
+		i := 0
+		for link := range linkMap {
+			links[i] = link
+		}
+		return links, err
+	}
+
 	links := make([]string, n)
 
 	db, err := bolt.Open(c.FilePrefix+".db", 0600, nil)

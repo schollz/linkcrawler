@@ -25,23 +25,24 @@ import (
 
 // Crawler is the crawler instance
 type Crawler struct {
-	client                   *http.Client
-	wg                       sync.WaitGroup
-	programTime              time.Time
-	curFileList              map[string]bool
-	BaseURL                  string
-	KeywordsToExclude        []string
-	KeywordsToInclude        []string
-	MaxNumberWorkers         int
-	MaxNumberConnections     int
-	Verbose                  bool
-	FilePrefix               string
-	TimeIntervalToPrintStats int
-	TimeIntervalToBackupDB   int
-	numTrash                 int
-	numDone                  int
-	numToDo                  int
-	numberOfURLSParsed       int
+	client                     *http.Client
+	wg                         sync.WaitGroup
+	programTime                time.Time
+	curFileList                map[string]bool
+	BaseURL                    string
+	KeywordsToExclude          []string
+	KeywordsToInclude          []string
+	MaxNumberWorkers           int
+	MaxNumberConnections       int
+	Verbose                    bool
+	FilePrefix                 string
+	Remote, Username, Password string // Parameters for BoltDB remote connection
+	TimeIntervalToPrintStats   int
+	TimeIntervalToBackupDB     int
+	numTrash                   int
+	numDone                    int
+	numToDo                    int
+	numberOfURLSParsed         int
 }
 
 func encodeURL(url string) string {
@@ -57,6 +58,7 @@ func New(url string) (*Crawler, error) {
 	c.FilePrefix = encodeURL(url)
 	c.TimeIntervalToPrintStats = 5
 	c.TimeIntervalToBackupDB = 5
+	c.Remote = ""
 	c.numDone = 0
 	c.numToDo = 0
 	c.numTrash = 0
