@@ -132,11 +132,11 @@ func (c *Crawler) Dump() error {
 		return err
 	}
 
-	err = ioutil.WriteFile("link.txt", []byte(strings.Join(links, "\n")), 0755)
+	err = ioutil.WriteFile(encodeURL(c.BaseURL)+".txt", []byte(strings.Join(links, "\n")), 0755)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Wrote %d links to links.txt\n", len(links))
+	fmt.Printf("Wrote %d links to %s\n", len(links), encodeURL(c.BaseURL)+".txt")
 	return nil
 }
 
