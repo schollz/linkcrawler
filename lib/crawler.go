@@ -12,15 +12,16 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/boltdb/bolt"
 	humanize "github.com/dustin/go-humanize"
 	"github.com/goware/urlx"
 	"github.com/jackdanger/collectlinks"
-	"github.com/schollz/archiver"
+	"github.com/jcelliott/lumber"
+	"github.com/schollz/boltdb-server/connect"
 )
 
 // Crawler is the crawler instance
@@ -43,6 +44,8 @@ type Crawler struct {
 	numDone                    int
 	numToDo                    int
 	numberOfURLSParsed         int
+	conn                       *connect.Connection
+	log                        *lumber.ConsoleLogger
 }
 
 func encodeURL(url string) string {
@@ -50,8 +53,14 @@ func encodeURL(url string) string {
 }
 
 // New will create a new crawler
-func New(url string) (*Crawler, error) {
+func New(url string, boltdbserver string, trace bool) (*Crawler, error) {
+	var err error
 	c := new(Crawler)
+	if trace {
+		c.log = lumber.NewConsoleLogger(lumber.TRACE)
+	} else {
+		c.log = lumber.NewConsoleLogger(lumber.WARN)
+	}
 	c.BaseURL = url
 	c.MaxNumberConnections = 100
 	c.MaxNumberWorkers = 100
@@ -59,62 +68,101 @@ func New(url string) (*Crawler, error) {
 	c.TimeIntervalToPrintStats = 5
 	c.TimeIntervalToBackupDB = 5
 	c.Remote = ""
-	c.numDone = 0
-	c.numToDo = 0
-	c.numTrash = 0
-	return c, c.initDB()
+	c.log.Info("Creating new database on %s: %s.db", boltdbserver, encodeURL(url))
+	c.conn, err = connect.Open(boltdbserver, encodeURL(url))
+	if err != nil {
+		return c, err
+	}
+	err = c.conn.CreateBuckets([]string{"todo", "trash", "done"})
+	if err != nil {
+		c.log.Error("Problem creating buckets")
+		return c, err
+	}
+	var keys []string
+	keys, err = c.conn.GetKeys("todo")
+	if err != nil {
+		c.log.Error("Problem getting todo list")
+		return c, err
+	}
+	c.numToDo = len(keys)
+	keys, err = c.conn.GetKeys("done")
+	if err != nil {
+		c.log.Error("Problem getting done list")
+		return c, err
+	}
+	c.numDone = len(keys)
+	keys, err = c.conn.GetKeys("trash")
+	if err != nil {
+		return c, err
+	}
+	c.numTrash = len(keys)
+
+	return c, err
 }
 
-func (c *Crawler) downloadOrCrawlLink(url string, download bool) error {
+func (c *Crawler) Name() string {
+	return encodeURL(c.BaseURL)
+}
+
+func (c *Crawler) GetLinks() (links []string, err error) {
+	doneLinks, err := c.conn.GetAll("done")
+	if err != nil {
+		return links, err
+	}
+	todoLinks, err := c.conn.GetAll("todo")
+	if err != nil {
+		return links, err
+	}
+	links = make([]string, len(doneLinks)+len(todoLinks))
+	linksI := 0
+	for link := range doneLinks {
+		links[linksI] = link
+		linksI++
+	}
+	for link := range todoLinks {
+		links[linksI] = link
+		linksI++
+	}
+	return links, nil
+}
+
+func (c *Crawler) Dump() error {
+	links, err := c.GetLinks()
+	if err != nil {
+		return err
+	}
+
+	err = ioutil.WriteFile("link.txt", []byte(strings.Join(links, "\n")), 0755)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Wrote %d links to links.txt\n", len(links))
+	return nil
+}
+
+func (c *Crawler) downloadOrCrawlLink(url string, currentNumberOfTries int, download bool) error {
 	// Decrement the counter when the goroutine completes.
 	defer c.wg.Done()
 
 	if download {
-		// Check if it is already downloaded
+		// Check if it is already downloaded and exists as a file
 		if _, ok := c.curFileList[encodeURL(url)]; ok {
-			if c.Verbose {
-				log.Printf("Already downloaded %s", url)
-			}
-			c.delete("todo", url)
-			c.set("done", url, 0)
+			c.log.Trace("Already downloaded %s", url)
+			c.conn.Post("done", map[string]string{url: strconv.Itoa(currentNumberOfTries)})
 			return nil
 		}
 	}
 
-	// Skip if the URL is done or trashed
-	isDone, err := c.contains("done", url)
-	if err != nil {
-		return err
-	}
-	isTrashed, err := c.contains("trash", url)
-	if err != nil {
-		return err
-	}
-	if isDone || isTrashed {
-		c.delete("todo", url)
-		return nil
-	}
-
-	// Get the current number of tries
-	currentNumberOfTries, err := c.get("todo", url)
-	if err != nil {
-		return err
-	}
+	// Try to download
 	currentNumberOfTries++
-
 	resp, err := c.client.Get(url)
 	if err != nil {
-		err2 := c.set("trash", url, currentNumberOfTries)
+		// Post to trash immedietly if the download fails
+		err2 := c.conn.Post("trash", map[string]string{url: strconv.Itoa(currentNumberOfTries)})
 		if err2 != nil {
 			return err
 		}
-		err2 = c.delete("todo", url)
-		if err2 != nil {
-			return err
-		}
-		if c.Verbose {
-			log.Printf("Problem with %s: %s", url, err.Error())
-		}
+		c.log.Trace("Problem with %s: %s", url, err.Error())
 		return nil
 	}
 
@@ -151,14 +199,12 @@ func (c *Crawler) downloadOrCrawlLink(url string, download bool) error {
 				return err
 			}
 
-			if c.Verbose {
-				log.Printf("Saved %s to %s", url, encodeURL(url)+extension)
-			}
+			c.log.Trace("Saved %s to %s", url, encodeURL(url)+extension)
 		} else {
 			links := collectlinks.All(resp.Body)
-			if c.Verbose {
-				log.Printf("Got %d links from %s\n", len(links), url)
-			}
+			c.log.Info("Got %d links from %s\n", len(links), url)
+			linkCandidates := make([]string, len(links))
+			linkCandidatesI := 0
 			for _, link := range links {
 				// Do not use query parameters
 				if strings.Contains(link, "?") {
@@ -170,9 +216,7 @@ func (c *Crawler) downloadOrCrawlLink(url string, download bool) error {
 				}
 				// Skip links that have a different Base URL
 				if !strings.Contains(link, c.BaseURL) {
-					// if c.Verbose {
-					// 	log.Printf("Skipping %s because it has a different base URL", link)
-					// }
+					c.log.Trace("Skipping %s because it has a different base URL", link)
 					continue
 				}
 				// Normalize the link
@@ -187,9 +231,7 @@ func (c *Crawler) downloadOrCrawlLink(url string, download bool) error {
 				for _, keyword := range c.KeywordsToExclude {
 					if strings.Contains(normalizedLink, keyword) {
 						foundExcludedKeyword = true
-						if c.Verbose {
-							log.Printf("Skipping %s because contains %s", link, keyword)
-						}
+						c.log.Trace("Skipping %s because contains %s", link, keyword)
 						break
 					}
 				}
@@ -209,44 +251,56 @@ func (c *Crawler) downloadOrCrawlLink(url string, download bool) error {
 					continue
 				}
 
-				// Add the new link if its not queued anywhere else
-				isDone, err := c.contains("done", normalizedLink)
-				if err != nil {
-					return err
-				}
-				isTrashed, err := c.contains("trash", normalizedLink)
-				if err != nil {
-					return err
-				}
-				isTodo, err := c.contains("todo", normalizedLink)
-				if err != nil {
-					return err
-				}
-				if !isDone && !isTrashed && !isTodo {
-					c.set("todo", normalizedLink, 0)
-					c.numToDo++
-				}
+				// If it passed all the tests, add to link candidates
+				linkCandidates[linkCandidatesI] = normalizedLink
+				linkCandidatesI++
 			}
+			linkCandidates = linkCandidates[0:linkCandidatesI]
+
+			// Check to see if any link candidates have already been done
+			doesHaveKeysMap, err := c.conn.HasKeys([]string{"todo", "trash", "done"}, linkCandidates)
+			if err != nil {
+				return err
+			}
+			linksToDo := make(map[string]string)
+			for link, alreadyDone := range doesHaveKeysMap {
+				if alreadyDone {
+					continue
+				}
+				linksToDo[link] = "0"
+				c.numToDo++
+			}
+			// Post new links to todo list
+			c.log.Trace("Posting %d more links todo", len(linksToDo))
+			err = c.conn.Post("todo", linksToDo)
+			if err != nil {
+				return err
+			}
+
 		}
 
 		// Dequeue the current URL
-		c.set("done", url, currentNumberOfTries)
+		err = c.conn.Post("done", map[string]string{url: strconv.Itoa(currentNumberOfTries)})
+		if err != nil {
+			c.log.Error("Problem posting to done: %s", err.Error())
+		}
+		c.log.Trace("Posted %s to done", url)
 		c.numDone++
-		c.delete("todo", url)
 		c.numToDo--
 	} else {
 		if currentNumberOfTries > 3 {
 			// Delete this URL as it has been tried too many times
-			c.set("trash", url, currentNumberOfTries)
-			c.numTrash++
-			c.delete("todo", url)
-			c.numToDo--
-			if c.Verbose {
-				log.Println("Too many tries, trashing " + url)
+			err = c.conn.Post("trash", map[string]string{url: strconv.Itoa(currentNumberOfTries)})
+			if err != nil {
+				c.log.Error("Problem posting to trash: %s", err.Error())
 			}
+			c.numTrash++
+			c.numToDo--
+			c.log.Trace("Too many tries, trashing " + url)
 		} else {
 			// Update the URL with the number of tries
-			c.set("todo", url, currentNumberOfTries)
+			m := map[string]string{url: strconv.Itoa(currentNumberOfTries)}
+			c.conn.Post("todo", m)
 		}
 	}
 	return nil
@@ -269,8 +323,19 @@ func (c *Crawler) Download(urls []string) error {
 		}
 	}
 
-	for _, url := range urls {
-		c.set("todo", url, 0)
+	urlsAlreadyAdded, err := c.conn.HasKeys([]string{"todo", "trash", "done"}, urls)
+	if err != nil {
+		return err
+	}
+	urlsStillToDo := make(map[string]string)
+	for url, alreadyAdded := range urlsAlreadyAdded {
+		if alreadyAdded {
+			continue
+		}
+		urlsStillToDo[url] = "0"
+	}
+	if len(urlsStillToDo) > 0 {
+		c.conn.Post("todo", urlsStillToDo)
 	}
 
 	return c.downloadOrCrawl(download)
@@ -278,7 +343,23 @@ func (c *Crawler) Download(urls []string) error {
 
 // Crawl is the function to crawl with the set parameters
 func (c *Crawler) Crawl() error {
-	c.set("todo", c.BaseURL, 0)
+	c.log.Trace("Checking to see if database has %s", c.BaseURL)
+	urlsAlreadyAdded, err := c.conn.HasKeys([]string{"todo", "trash", "done"}, []string{c.BaseURL})
+	if err != nil {
+		return err
+	}
+	c.log.Trace("urlsAlreadyAdded: %v", urlsAlreadyAdded)
+	urlsStillToDo := make(map[string]string)
+	for url, alreadyAdded := range urlsAlreadyAdded {
+		if alreadyAdded {
+			continue
+		}
+		urlsStillToDo[url] = "0"
+	}
+	if len(urlsStillToDo) > 0 {
+		c.log.Trace("Posting todo: %v", urlsStillToDo)
+		c.conn.Post("todo", urlsStillToDo)
+	}
 	download := false
 	return c.downloadOrCrawl(download)
 }
@@ -296,19 +377,22 @@ func (c *Crawler) downloadOrCrawl(download bool) error {
 	c.numberOfURLSParsed = 0
 	it := 0
 	go c.contantlyPrintStats()
-	go c.contantlyPerformBackup()
 	for {
 		it++
-		linksToDo, err := c.getNLinksTodo(c.MaxNumberWorkers)
+		linksToDo, err := c.conn.Pop("todo", c.MaxNumberWorkers)
 		if err != nil {
 			return err
 		}
 		if len(linksToDo) == 0 {
 			break
 		}
-		for _, url := range linksToDo {
+		for url, numTriesStr := range linksToDo {
+			numTries, err := strconv.Atoi(numTriesStr)
+			if err != nil {
+				return err
+			}
 			c.wg.Add(1)
-			go c.downloadOrCrawlLink(url, download)
+			go c.downloadOrCrawlLink(url, numTries, download)
 		}
 		c.wg.Wait()
 
@@ -349,19 +433,4 @@ func (c *Crawler) printStats() {
 		humanize.Comma(int64(c.numToDo)),
 		humanize.Comma(int64(c.numDone)),
 		humanize.Comma(int64(c.numTrash)))
-}
-
-func (c *Crawler) contantlyPerformBackup() {
-	for {
-		time.Sleep(time.Duration(int32(c.TimeIntervalToBackupDB)) * time.Second)
-		os.Remove(c.FilePrefix + ".db.zip")
-		db, _ := bolt.Open(c.FilePrefix+".db", 0600, &bolt.Options{Timeout: 10 * time.Second})
-		err := archiver.Zip.Make(c.FilePrefix+".db.zip", []string{c.FilePrefix + ".db"})
-		db.Close()
-		if err == nil {
-			fmt.Printf("%s\tBacked up DB\n", c.programTime.String())
-		} else {
-			fmt.Printf("%s\nError backing up DB:%s\n", c.programTime.String(), err.Error())
-		}
-	}
 }

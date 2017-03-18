@@ -1,14 +1,19 @@
 package crawler
 
 import (
-	"os"
 	"testing"
+
+	"github.com/schollz/boltdb-server/connect"
 )
 
 func TestGeneral(t *testing.T) {
-	defer os.Remove("NB2HI4B2F4XXE4DJMFUS4Y3PNUXQ====.db")
-	defer os.Remove("NB2HI4B2F4XXE4DJMFUS4Y3PNUXQ====.db.zip")
-	crawl, err := New("http://rpiai.com/")
+	boltdbserver := "http://localhost:8080"
+
+	// Delete previous
+	conn, _ := connect.Open(boltdbserver, "linkcrawler")
+	_ = conn.DeleteDatabase()
+
+	crawl, err := New("http://rpiai.com/", boltdbserver)
 	if err != nil {
 		t.Error(err)
 	}
@@ -26,12 +31,20 @@ func TestGeneral(t *testing.T) {
 		t.Errorf("Only got %d links", len(allLinks))
 	}
 
+	// Reload the crawler
+	conn.DeleteDatabase()
+	crawl, err = New("http://rpiai.com/", boltdbserver)
+	if err != nil {
+		t.Error(err)
+	}
+	crawl.Verbose = true
+
 	err = crawl.Download(allLinks)
 	if err != nil {
 		t.Errorf("Problem downloading: %s", err.Error())
 	}
 
-	err = Dump("NB2HI4B2F4XXE4DJMFUS4Y3PNUXQ====.db")
+	err = crawl.Dump()
 	if err != nil {
 		t.Errorf("Problem dumping: %s", err.Error())
 	}

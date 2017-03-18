@@ -23,6 +23,11 @@ func main() {
 	}
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
+			Name:  "server, s",
+			Value: "",
+			Usage: "boltdb server instance [required]",
+		},
+		cli.StringFlag{
 			Name:  "exclude, e",
 			Value: "",
 			Usage: "comma-delimted phrases that must NOT be in URL",
@@ -43,7 +48,7 @@ func main() {
 			Usage: "Max number of connections in HTTP pool",
 		},
 		cli.IntFlag{
-			Name:  "stats,s",
+			Name:  "stats",
 			Value: 1,
 			Usage: "Print stats every `X` seconds",
 		},
@@ -75,11 +80,17 @@ func main() {
 					fmt.Println("Must specify url to crawl")
 					return nil
 				}
-				fmt.Println(c.GlobalString("lang"))
+
+				if c.GlobalString("server") == "" {
+					fmt.Println("Must specify BoltDB server ")
+					return nil
+				}
+
 				fmt.Println(url)
 
 				// Setup crawler to crawl
-				craw, err := crawler.New(url)
+				fmt.Println("Setting up crawler...")
+				craw, err := crawler.New(url, c.GlobalString("server"), c.GlobalBool("verbose"))
 				if err != nil {
 					return err
 				}
@@ -97,11 +108,12 @@ func main() {
 				if len(c.GlobalString("exclude")) > 0 {
 					craw.KeywordsToExclude = strings.Split(strings.ToLower(c.GlobalString("exclude")), ",")
 				}
+				fmt.Printf("Starting crawl using DB %s\n", craw.Name())
 				err = craw.Crawl()
 				if err != nil {
 					return err
 				}
-				return crawler.Dump(craw.FilePrefix + ".db")
+				return craw.Dump()
 			},
 		},
 		{
@@ -117,6 +129,11 @@ func main() {
 					return nil
 				}
 
+				if c.GlobalString("server") == "" {
+					fmt.Println("Must specify BoltDB server ")
+					return nil
+				}
+
 				b, err := ioutil.ReadFile(fileWithListOfURLS)
 				if err != nil {
 					return err
@@ -124,7 +141,7 @@ func main() {
 				links := strings.Split(string(b), "\n")
 
 				// Setup crawler to download
-				craw, err := crawler.New(fileWithListOfURLS)
+				craw, err := crawler.New(fileWithListOfURLS, c.GlobalString("server"), c.GlobalBool("verbose"))
 				if err != nil {
 					return err
 				}
@@ -155,14 +172,25 @@ func main() {
 			Name:  "dump",
 			Usage: "dump a list of links crawled from db",
 			Action: func(c *cli.Context) error {
-				dbFile := ""
+				url := ""
 				if c.NArg() > 0 {
-					dbFile = c.Args().Get(0)
+					url = c.Args().Get(0)
 				} else {
-					fmt.Println("Must specify database")
+					fmt.Println("Must specify url to dump")
 					return nil
 				}
-				return crawler.Dump(dbFile)
+
+				if c.GlobalString("server") == "" {
+					fmt.Println("Must specify BoltDB server ")
+					return nil
+				}
+
+				// Setup crawler to crawl
+				craw, err := crawler.New(url, c.GlobalString("server"), c.GlobalBool("verbose"))
+				if err != nil {
+					return err
+				}
+				return craw.Dump()
 			},
 		},
 	}
