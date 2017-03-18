@@ -395,21 +395,13 @@ func round(f float64) int {
 }
 
 func (c *Crawler) updateListCounts() error {
-	keys, err := c.conn.GetKeys("todo")
+	stats, err := c.conn.Stats()
 	if err != nil {
 		return err
 	}
-	c.numToDo = len(keys)
-	keys, err = c.conn.GetKeys("done")
-	if err != nil {
-		return err
-	}
-	c.numDone = len(keys)
-	keys, err = c.conn.GetKeys("trash")
-	if err != nil {
-		return err
-	}
-	c.numTrash = len(keys)
+	c.numToDo = stats["todo"]
+	c.numDone = stats["done"]
+	c.numTrash = stats["trash"]
 	return nil
 }
 
