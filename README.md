@@ -11,12 +11,7 @@
 
 <p align="center">Persistent and distributed web crawler</a></p>
 
-Persistent and distrubted web crawler that can either
-
-  1. crawl a website and create a list of all links OR
-  2. download all websites in a list to a gzipped file.
-
-*linkcrawler* is threaded and uses connection pools so it is fast. It is persistent because it periodically dumps its state to JSON files which it will use to re-initialize if interrupted. It is distributed because it connects to a database to store its state. Thus you can start as many crawlers as you want on separate machines to speed along the process.
+Persistent and distrubted web crawler that can either crawl a website and create a list of all links OR download all websites in a list to a gzipped file. *linkcrawler* is threaded and uses connection pools so it is fast. It is persistent because it periodically dumps its state to JSON files which it will use to re-initialize if interrupted. It is distributed by connecting to a database to store its state so you can start as many crawlers as you want on separate machines to speed along the process.
 
 Getting Started
 ===============
