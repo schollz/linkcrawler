@@ -1,4 +1,8 @@
 language: go
 
-go:
-  - tip
+script:
+        - go get github.com/schollz/boltdb-server/...
+        - go get github.com/schollz/linkcrawler/...
+        - cd $GOPATH/src/github.com/schollz/boltdb-server && go build
+        - cd $GOPATH/src/github.com/schollz/boltdb-server && ./boltdb-server &
+        - cd $GOPATH/src/github.com/schollz/linkcrawler/lib && go test

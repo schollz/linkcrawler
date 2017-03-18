@@ -8,16 +8,16 @@ import (
 
 func TestGeneral(t *testing.T) {
 	boltdbserver := "http://localhost:8080"
+	crawl, err := New("http://rpiai.com/", boltdbserver, true)
 
 	// Delete previous
-	conn, _ := connect.Open(boltdbserver, "linkcrawler")
+	conn, _ := connect.Open(boltdbserver, crawl.Name())
 	_ = conn.DeleteDatabase()
 
-	crawl, err := New("http://rpiai.com/", boltdbserver)
+	crawl, err = New("http://rpiai.com/", boltdbserver, true)
 	if err != nil {
 		t.Error(err)
 	}
-	crawl.Verbose = true
 
 	if err = crawl.Crawl(); err != nil {
 		t.Error(err)
@@ -33,11 +33,10 @@ func TestGeneral(t *testing.T) {
 
 	// Reload the crawler
 	conn.DeleteDatabase()
-	crawl, err = New("http://rpiai.com/", boltdbserver)
+	crawl, err = New("http://rpiai.com/", boltdbserver, true)
 	if err != nil {
 		t.Error(err)
 	}
-	crawl.Verbose = true
 
 	err = crawl.Download(allLinks)
 	if err != nil {
