@@ -28,6 +28,11 @@ func main() {
 			Usage: "boltdb server instance [required]",
 		},
 		cli.StringFlag{
+			Name:  "useragent,",
+			Value: "",
+			Usage: "supply a User-Agent string to be used",
+		},
+		cli.StringFlag{
 			Name:  "exclude, e",
 			Value: "",
 			Usage: "comma-delimted phrases that must NOT be in URL",
@@ -102,6 +107,7 @@ func main() {
 				craw.Verbose = c.GlobalBool("verbose")
 				craw.TimeIntervalToPrintStats = c.GlobalInt("stats")
 				craw.TimeIntervalToBackupDB = c.GlobalInt("backup")
+				craw.UserAgent = c.GlobalString("useragent")
 				if len(c.GlobalString("include")) > 0 {
 					craw.KeywordsToInclude = strings.Split(strings.ToLower(c.GlobalString("include")), ",")
 				}
@@ -153,6 +159,7 @@ func main() {
 				craw.Verbose = c.GlobalBool("verbose")
 				craw.TimeIntervalToPrintStats = c.GlobalInt("stats")
 				craw.TimeIntervalToBackupDB = c.GlobalInt("backup")
+				craw.UserAgent = c.GlobalString("useragent")
 				if len(c.GlobalString("include")) > 0 {
 					craw.KeywordsToInclude = strings.Split(strings.ToLower(c.GlobalString("include")), ",")
 				}

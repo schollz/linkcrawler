@@ -38,6 +38,7 @@ type Crawler struct {
 	Verbose                    bool
 	FilePrefix                 string
 	Remote, Username, Password string // Parameters for BoltDB remote connection
+	UserAgent                  string
 	TimeIntervalToPrintStats   int
 	TimeIntervalToBackupDB     int
 	numTrash                   int
@@ -67,9 +68,10 @@ func New(url string, boltdbserver string, trace bool) (*Crawler, error) {
 	c.FilePrefix = encodeURL(url)
 	c.TimeIntervalToPrintStats = 5
 	c.TimeIntervalToBackupDB = 5
-	c.Remote = ""
-	c.log.Info("Creating new database on %s: %s.db", boltdbserver, encodeURL(url))
-	c.conn, err = connect.Open(boltdbserver, encodeURL(url))
+	c.Remote = boltdbserver
+	c.UserAgent = ""
+	c.log.Info("Creating new database on %s: %s.db", c.Remote, encodeURL(url))
+	c.conn, err = connect.Open(c.Remote, encodeURL(url))
 	if err != nil {
 		return c, err
 	}
@@ -140,7 +142,16 @@ func (c *Crawler) downloadOrCrawlLink(url string, currentNumberOfTries int, down
 
 	// Try to download
 	currentNumberOfTries++
-	resp, err := c.client.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		c.log.Error("Problem making request for %s: %s", url, err.Error())
+		return err
+	}
+	if c.UserAgent != "" {
+		c.log.Trace("Setting useragent string to '%s'", c.UserAgent)
+		req.Header.Set("User-Agent", c.UserAgent)
+	}
+	resp, err := c.client.Do(req)
 	if err != nil {
 		// Post to trash immedietly if the download fails
 		err2 := c.conn.Post("trash", map[string]string{url: strconv.Itoa(currentNumberOfTries)})
