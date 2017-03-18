@@ -78,25 +78,10 @@ func New(url string, boltdbserver string, trace bool) (*Crawler, error) {
 		c.log.Error("Problem creating buckets")
 		return c, err
 	}
-	var keys []string
-	keys, err = c.conn.GetKeys("todo")
+	err = c.updateListCounts()
 	if err != nil {
-		c.log.Error("Problem getting todo list")
-		return c, err
+		c.log.Error("Problem updating list counts")
 	}
-	c.numToDo = len(keys)
-	keys, err = c.conn.GetKeys("done")
-	if err != nil {
-		c.log.Error("Problem getting done list")
-		return c, err
-	}
-	c.numDone = len(keys)
-	keys, err = c.conn.GetKeys("trash")
-	if err != nil {
-		return c, err
-	}
-	c.numTrash = len(keys)
-
 	return c, err
 }
 
@@ -268,7 +253,6 @@ func (c *Crawler) downloadOrCrawlLink(url string, currentNumberOfTries int, down
 					continue
 				}
 				linksToDo[link] = "0"
-				c.numToDo++
 			}
 			// Post new links to todo list
 			c.log.Trace("Posting %d more links todo", len(linksToDo))
@@ -285,8 +269,6 @@ func (c *Crawler) downloadOrCrawlLink(url string, currentNumberOfTries int, down
 			c.log.Error("Problem posting to done: %s", err.Error())
 		}
 		c.log.Trace("Posted %s to done", url)
-		c.numDone++
-		c.numToDo--
 	} else {
 		if currentNumberOfTries > 3 {
 			// Delete this URL as it has been tried too many times
@@ -294,8 +276,6 @@ func (c *Crawler) downloadOrCrawlLink(url string, currentNumberOfTries int, down
 			if err != nil {
 				c.log.Error("Problem posting to trash: %s", err.Error())
 			}
-			c.numTrash++
-			c.numToDo--
 			c.log.Trace("Too many tries, trashing " + url)
 		} else {
 			// Update the URL with the number of tries
@@ -414,9 +394,29 @@ func round(f float64) int {
 	return int(f + math.Copysign(0.5, f))
 }
 
+func (c *Crawler) updateListCounts() error {
+	keys, err := c.conn.GetKeys("todo")
+	if err != nil {
+		return err
+	}
+	c.numToDo = len(keys)
+	keys, err = c.conn.GetKeys("done")
+	if err != nil {
+		return err
+	}
+	c.numDone = len(keys)
+	keys, err = c.conn.GetKeys("trash")
+	if err != nil {
+		return err
+	}
+	c.numTrash = len(keys)
+	return nil
+}
+
 func (c *Crawler) contantlyPrintStats() {
 	for {
 		time.Sleep(time.Duration(int32(c.TimeIntervalToPrintStats)) * time.Second)
+		c.updateListCounts()
 		if c.numToDo == 0 {
 			fmt.Println("Finished")
 			return
@@ -427,7 +427,7 @@ func (c *Crawler) contantlyPrintStats() {
 
 func (c *Crawler) printStats() {
 	URLSPerSecond := round(float64(c.numberOfURLSParsed) / float64(time.Since(c.programTime).Seconds()))
-	log.Printf("%s parsed (%d/s), %s todo, %s done, %s trashed\n",
+	log.Printf("Node: %s parsed (%d/s). Total: %s todo, %s done, %s trashed\n",
 		humanize.Comma(int64(c.numberOfURLSParsed)),
 		URLSPerSecond,
 		humanize.Comma(int64(c.numToDo)),
