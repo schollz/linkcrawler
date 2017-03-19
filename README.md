@@ -33,7 +33,7 @@ Otherwise, use the releases and [download linkcrawler](https://github.com/scholl
 
 ### Crawl a site
 
-First run the database server which will create a hub:
+First run the database server which will create a LAN hub:
 
 ```sh
 $ ./boltdb-server
