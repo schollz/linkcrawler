@@ -40,7 +40,6 @@ type Crawler struct {
 	Remote, Username, Password string // Parameters for BoltDB remote connection
 	UserAgent                  string
 	TimeIntervalToPrintStats   int
-	TimeIntervalToBackupDB     int
 	numTrash                   int
 	numDone                    int
 	numToDo                    int
@@ -67,7 +66,6 @@ func New(url string, boltdbserver string, trace bool) (*Crawler, error) {
 	c.MaxNumberWorkers = 100
 	c.FilePrefix = encodeURL(url)
 	c.TimeIntervalToPrintStats = 5
-	c.TimeIntervalToBackupDB = 5
 	c.Remote = boltdbserver
 	c.UserAgent = ""
 	c.log.Info("Creating new database on %s: %s.db", c.Remote, encodeURL(url))

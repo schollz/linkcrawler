@@ -11,11 +11,12 @@ import (
 	"gopkg.in/urfave/cli.v1"
 )
 
+var version string
 func main() {
 	app := cli.NewApp()
 	app.Name = "linkcrawler"
 	app.Usage = "crawl a site for links, or download a list of sites"
-	app.Version = "0.0.1"
+	app.Version = version
 	app.Compiled = time.Now()
 	app.Action = func(c *cli.Context) error {
 		cli.ShowSubcommandHelp(c)
@@ -56,11 +57,6 @@ func main() {
 			Name:  "stats",
 			Value: 1,
 			Usage: "Print stats every `X` seconds",
-		},
-		cli.IntFlag{
-			Name:  "backup,b",
-			Value: 5,
-			Usage: "Backup DB every `X` minutes",
 		},
 		cli.BoolFlag{
 			Name:  "verbose",
@@ -106,7 +102,6 @@ func main() {
 				craw.MaxNumberWorkers = c.GlobalInt("workers")
 				craw.Verbose = c.GlobalBool("verbose")
 				craw.TimeIntervalToPrintStats = c.GlobalInt("stats")
-				craw.TimeIntervalToBackupDB = c.GlobalInt("backup")
 				craw.UserAgent = c.GlobalString("useragent")
 				if len(c.GlobalString("include")) > 0 {
 					craw.KeywordsToInclude = strings.Split(strings.ToLower(c.GlobalString("include")), ",")
@@ -158,7 +153,6 @@ func main() {
 				craw.MaxNumberWorkers = c.GlobalInt("workers")
 				craw.Verbose = c.GlobalBool("verbose")
 				craw.TimeIntervalToPrintStats = c.GlobalInt("stats")
-				craw.TimeIntervalToBackupDB = c.GlobalInt("backup")
 				craw.UserAgent = c.GlobalString("useragent")
 				if len(c.GlobalString("include")) > 0 {
 					craw.KeywordsToInclude = strings.Split(strings.ToLower(c.GlobalString("include")), ",")
