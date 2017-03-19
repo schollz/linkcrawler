@@ -11,7 +11,7 @@
 
 <p align="center">Cross-platform persistent and distributed web crawler</a></p>
 
-*linkcrawler* is persistent because the queue is stored in a remote databsae that is automatically re-initialized if interrupted. *linkcrawler* is distributed because multiple instances of *linkcrawler* will work on the remotely stored queue, so you can start as many crawlers as you want on separate machines to speed along the process. *linkcrawler* is also fast because it is threaded and uses connection pools.
+*linkcrawler* is persistent because the queue is stored in a remote database that is automatically re-initialized if interrupted. *linkcrawler* is distributed because multiple instances of *linkcrawler* will work on the remotely stored queue, so you can start as many crawlers as you want on separate machines to speed along the process. *linkcrawler* is also fast because it is threaded and uses connection pools.
 
 Crawl responsibly.
 
@@ -47,7 +47,7 @@ $ linkcrawler --server http://X.Y.Z.W:8080 crawl http://rpiai.com
 ```
 
 
-Make sure to replace `http://X.Y.Z.W:8080` with the IP information outputed from the boltdb-server.
+Make sure to replace `http://X.Y.Z.W:8080` with the IP information outputted from the boltdb-server.
 
 You can run this last command on as many different machines as you want, which will help to crawl the respective website and add collected links to a universal queue in the server.
 
