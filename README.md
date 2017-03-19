@@ -37,17 +37,17 @@ First run the database server which will create a hub:
 
 ```sh
 $ ./boltdb-server
-boltdb-server running on X.Y.Z.W:8080
+boltdb-server running on http://X.Y.Z.W:8050
 ```
 
 Then, to capture all the links on a website:
 
 ```sh
-$ linkcrawler --server http://X.Y.Z.W:8080 crawl http://rpiai.com
+$ linkcrawler --server http://X.Y.Z.W:8050 crawl http://rpiai.com
 ```
 
 
-Make sure to replace `http://X.Y.Z.W:8080` with the IP information outputted from the boltdb-server.
+Make sure to replace `http://X.Y.Z.W:8050` with the IP information outputted from the boltdb-server.
 
 You can run this last command on as many different machines as you want, which will help to crawl the respective website and add collected links to a universal queue in the server.
 
@@ -61,7 +61,7 @@ See the help (`-help`) if you'd like to see more options, such as exclusions/inc
 You can also use *linkcrawler* to download webpages from a newline-delimited list of websites. As before, first startup a boltdb-server.  Then you can run:
 
 ```bash
-$ linkcrawler --server http://X.Y.Z.W:8080 download links.txt
+$ linkcrawler --server http://X.Y.Z.W:8050 download links.txt
 ```
 
 Downloads are saved into a folder `downloaded` with URL of link encoded in Base32 and compressed using gzip.
@@ -71,7 +71,7 @@ Downloads are saved into a folder `downloaded` with URL of link encoded in Base3
 To dump the current database, just use
 
 ```bash
-$ linkcrawler --server http://X.Y.Z.W:8080 dump http://rpiai.com
+$ linkcrawler --server http://X.Y.Z.W:8050 dump http://rpiai.com
 Wrote 32 links to NB2HI4B2F4XXE4DJMFUS4Y3PNU======.txt
 ```
 
