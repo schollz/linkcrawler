@@ -1,0 +1,16 @@
+# goreleaser.yml
+# Build customization
+build:
+  binary_name: linkcrawler
+  goos:
+    - windows
+    - darwin
+    - linux
+  goarch:
+    - amd64
+# Archive customization
+archive:
+  format: zip
+  files:
+    - README.md
+    - LICENSE
