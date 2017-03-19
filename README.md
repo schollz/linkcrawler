@@ -9,9 +9,9 @@
 <a href="https://godoc.org/github.com/schollz/linkcrawler/lib"><img src="https://img.shields.io/badge/api-reference-blue.svg?style=flat-square" alt="GoDoc"></a>
 </p>
 
-<p align="center">Persistent and distributed web crawler</a></p>
+<p align="center">Cross-platform persistent and distributed web crawler</a></p>
 
-Persistent and distributed web crawler that can either crawl a website and create a list of all links OR download all websites in a list to a gzipped file. *linkcrawler* is threaded and uses connection pools so it is fast. It is persistent because it periodically dumps its state to JSON files which it will use to re-initialize if interrupted. It is distributed by connecting to a database to store its state so you can start as many crawlers as you want on separate machines to speed along the process.
+*linkcrawler* is persistent because the queue is stored in a remote databsae that is automatically re-initialized if interrupted. *linkcrawler* is distributed because multiple instances of *linkcrawler* will work on the remotely stored queue, so you can start as many crawlers as you want on separate machines to speed along the process. *linkcrawler* is also fast because it is threaded and uses connection pools.
 
 Crawl responsibly.
 
@@ -26,12 +26,12 @@ go get github.com/schollz/linkcrawler/...
 go get github.com/schollz/boltdb-server/...
 ```
 
-Otherwise, use the releases and [download linkcrawler](https://github.com/schollz/linkcrawler/releases/latest) and then [download boltdb-server](https://github.com/schollz/boltdb-server/releases/latest)
+Otherwise, use the releases and [download linkcrawler](https://github.com/schollz/linkcrawler/releases/latest) and then [download the boltdb-server](https://github.com/schollz/boltdb-server/releases/latest).
 
 
 ## Run
 
-### Crawl
+### Crawl a site
 
 First run the database server which will create a hub:
 
@@ -44,12 +44,6 @@ Then, to capture all the links on a website:
 
 ```sh
 $ linkcrawler --server http://X.Y.Z.W:8080 crawl http://rpiai.com
-http://rpiai.com
-Setting up crawler...
-Starting crawl using DB NB2HI4B2F4XXE4DJMFUS4Y3PNU======
-2017/03/11 08:38:02 32 parsed (5/s), 0 todo, 32 done, 3 trashed
-Got links downloaded from 'http://rpiai.com'
-Wrote 32 links to NB2HI4B2F4XXE4DJMFUS4Y3PNU======.txt
 ```
 
 
@@ -59,23 +53,20 @@ You can run this last command on as many different machines as you want, which w
 
 The current state of the crawler is saved. If the crawler is interrupted, you can simply run the command again and it will restart from the last state.
 
+See the help (`-help`) if you'd like to see more options, such as exclusions/inclusions and modifying the worker pool and connection pools.
 
-### Download
 
-Similar as before, startup a boltdb-server and then, to download gzipped webpages from a list of websites:
+### Download a site
+
+You can also use *linkcrawler* to download webpages from a newline-delimited list of websites. As before, first startup a boltdb-server.  Then you can run:
 
 ```bash
 $ linkcrawler --server http://X.Y.Z.W:8080 download links.txt
-2017/03/11 08:41:20 32 parsed (31/s), 0 todo, 32 done, 0 trashed
-Finished downloading
-$ ls downloaded | head -n 2
-NB2HI4B2F4XXE4DJMFUS4Y3PNU======.html.gz
-NB2HI4B2F4XXE4DJMFUS4Y3PNUXQ====.html.gz
 ```
 
-Downloads are saved into a folder `downloaded` with URL of link encoded in Base32.
+Downloads are saved into a folder `downloaded` with URL of link encoded in Base32 and compressed using gzip.
 
-### Dump
+### Dump the current list of links
 
 To dump the current database, just use
 
@@ -83,7 +74,6 @@ To dump the current database, just use
 $ linkcrawler --server http://X.Y.Z.W:8080 dump http://rpiai.com
 Wrote 32 links to NB2HI4B2F4XXE4DJMFUS4Y3PNU======.txt
 ```
-
 
 ## License
 
