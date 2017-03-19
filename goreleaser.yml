@@ -8,13 +8,11 @@ build:
     - linux
   goarch:
     - amd64
-    - i386
 # Archive customization
 archive:
   format: zip
   replacements:
     amd64: 64-bit
-    i386: 32-bit
     darwin: macOS
     linux: linux
     windows: windows
