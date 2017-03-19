@@ -7,7 +7,7 @@ import (
 )
 
 func TestGeneral(t *testing.T) {
-	boltdbserver := "http://localhost:8080"
+	boltdbserver := "http://localhost:8050"
 	crawl, err := New("http://rpiai.com/", boltdbserver, true)
 
 	// Delete previous
