@@ -302,6 +302,7 @@ func (c *Crawler) Download(urls []string) error {
 	download := true
 
 	// Determine which files have been downloaded
+	fmt.Printf("Determing with of the %d urls are already downloaded...\n", len(urls))
 	c.curFileList = make(map[string]bool)
 	files, err := ioutil.ReadDir("downloaded")
 	if err == nil {
@@ -314,6 +315,7 @@ func (c *Crawler) Download(urls []string) error {
 		}
 	}
 
+	fmt.Printf("Determing which of the %d urls are already queued...\n", len(urls))
 	urlsAlreadyAdded, err := c.conn.HasKeys([]string{"todo", "trash", "done"}, urls)
 	if err != nil {
 		return err
@@ -329,6 +331,7 @@ func (c *Crawler) Download(urls []string) error {
 		c.conn.Post("todo", urlsStillToDo)
 	}
 
+	fmt.Println("Starting download...")
 	return c.downloadOrCrawl(download)
 }
 
