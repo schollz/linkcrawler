@@ -98,13 +98,21 @@ func (c *Crawler) GetLinks() (links []string, err error) {
 	if err != nil {
 		return links, err
 	}
-	links = make([]string, len(doneLinks)+len(todoLinks))
+	trashLinks, err := c.conn.GetAll("trash")
+	if err != nil {
+		return links, err
+	}
+	links = make([]string, len(doneLinks)+len(todoLinks)+len(trashLinks))
 	linksI := 0
 	for link := range doneLinks {
 		links[linksI] = link
 		linksI++
 	}
 	for link := range todoLinks {
+		links[linksI] = link
+		linksI++
+	}
+	for link := range trashLinks {
 		links[linksI] = link
 		linksI++
 	}
