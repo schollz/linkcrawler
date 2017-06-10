@@ -454,6 +454,7 @@ func (c *Crawler) updateListCounts() error {
 }
 
 func (c *Crawler) contantlyPrintStats() {
+	lastTrashed := c.numTrash
 	for {
 		time.Sleep(time.Duration(int32(c.TimeIntervalToPrintStats)) * time.Second)
 		c.updateListCounts()
@@ -462,6 +463,11 @@ func (c *Crawler) contantlyPrintStats() {
 			return
 		}
 		c.printStats()
+		if c.numTrash-lastTrashed > 3 {
+			fmt.Println("Too much trashing, exiting!")
+			os.Exit(1)
+		}
+		lastTrashed = c.numTrash
 	}
 }
 
