@@ -59,6 +59,11 @@ func main() {
 			Value: 1,
 			Usage: "Print stats every `X` seconds",
 		},
+		cli.IntFlag{
+			Name:  "trash-limit",
+			Value: 5,
+			Usage: "Exit if trashed URLs accumulates more than `X` / stats check",
+		},
 		cli.BoolFlag{
 			Name:  "verbose",
 			Usage: "turn on logging",
@@ -108,6 +113,7 @@ func main() {
 				craw.Verbose = c.GlobalBool("verbose")
 				craw.TimeIntervalToPrintStats = c.GlobalInt("stats")
 				craw.UserAgent = c.GlobalString("useragent")
+				craw.TrashLimit = c.GlobalInt("trash-limit")
 				if len(c.GlobalString("include")) > 0 {
 					craw.KeywordsToInclude = strings.Split(strings.ToLower(c.GlobalString("include")), ",")
 				}

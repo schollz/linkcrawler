@@ -45,6 +45,7 @@ type Crawler struct {
 	numToDo                    int
 	numDoing                   int
 	numberOfURLSParsed         int
+	TrashLimit                 int
 	conn                       *connect.Connection
 	log                        *lumber.ConsoleLogger
 }
@@ -63,6 +64,7 @@ func New(url string, boltdbserver string, trace bool) (*Crawler, error) {
 		c.log = lumber.NewConsoleLogger(lumber.WARN)
 	}
 	c.BaseURL = url
+	c.TrashLimit = 5
 	c.MaxNumberConnections = 50
 	c.MaxNumberWorkers = 50
 	c.FilePrefix = encodeURL(url)
@@ -463,8 +465,8 @@ func (c *Crawler) contantlyPrintStats() {
 			return
 		}
 		c.printStats()
-		if c.numTrash-lastTrashed > 3 {
-			fmt.Println("Too much trashing, exiting!")
+		if c.numTrash-lastTrashed > c.TrashLimit {
+			fmt.Println("Trash limit per stats generation exceeded, exiting!")
 			os.Exit(1)
 		}
 		lastTrashed = c.numTrash
