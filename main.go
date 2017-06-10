@@ -12,6 +12,7 @@ import (
 )
 
 var version string
+
 func main() {
 	app := cli.NewApp()
 	app.Name = "linkcrawler"
@@ -67,6 +68,10 @@ func main() {
 			Value: "",
 			Usage: "override file prefix",
 		},
+		cli.BoolFlag{
+			Name:  "redo",
+			Usage: "move doing to todo",
+		},
 	}
 	app.Commands = []cli.Command{
 		{
@@ -108,6 +113,9 @@ func main() {
 				}
 				if len(c.GlobalString("exclude")) > 0 {
 					craw.KeywordsToExclude = strings.Split(strings.ToLower(c.GlobalString("exclude")), ",")
+				}
+				if c.GlobalBool("redo") {
+					craw.ResetDoing()
 				}
 				fmt.Printf("Starting crawl using DB %s\n", craw.Name())
 				err = craw.Crawl()
@@ -159,6 +167,9 @@ func main() {
 				}
 				if len(c.GlobalString("exclude")) > 0 {
 					craw.KeywordsToExclude = strings.Split(strings.ToLower(c.GlobalString("exclude")), ",")
+				}
+				if c.GlobalBool("redo") {
+					craw.ResetDoing()
 				}
 				err = craw.Download(links)
 				if err != nil {

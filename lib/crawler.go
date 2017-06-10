@@ -43,6 +43,7 @@ type Crawler struct {
 	numTrash                   int
 	numDone                    int
 	numToDo                    int
+	numDoing                   int
 	numberOfURLSParsed         int
 	conn                       *connect.Connection
 	log                        *lumber.ConsoleLogger
@@ -62,8 +63,8 @@ func New(url string, boltdbserver string, trace bool) (*Crawler, error) {
 		c.log = lumber.NewConsoleLogger(lumber.WARN)
 	}
 	c.BaseURL = url
-	c.MaxNumberConnections = 100
-	c.MaxNumberWorkers = 100
+	c.MaxNumberConnections = 50
+	c.MaxNumberWorkers = 50
 	c.FilePrefix = encodeURL(url)
 	c.TimeIntervalToPrintStats = 5
 	c.Remote = boltdbserver
@@ -71,9 +72,10 @@ func New(url string, boltdbserver string, trace bool) (*Crawler, error) {
 	c.log.Info("Creating new database on %s: %s.db", c.Remote, encodeURL(url))
 	c.conn, err = connect.Open(c.Remote, encodeURL(url))
 	if err != nil {
+		c.log.Error("Problem opening database")
 		return c, err
 	}
-	err = c.conn.CreateBuckets([]string{"todo", "trash", "done"})
+	err = c.conn.CreateBuckets([]string{"todo", "trash", "done", "doing"})
 	if err != nil {
 		c.log.Error("Problem creating buckets")
 		return c, err
@@ -81,6 +83,7 @@ func New(url string, boltdbserver string, trace bool) (*Crawler, error) {
 	err = c.updateListCounts()
 	if err != nil {
 		c.log.Error("Problem updating list counts")
+		c.log.Error(err.Error())
 	}
 	return c, err
 }
@@ -102,7 +105,11 @@ func (c *Crawler) GetLinks() (links []string, err error) {
 	if err != nil {
 		return links, err
 	}
-	links = make([]string, len(doneLinks)+len(todoLinks)+len(trashLinks))
+	doingLinks, err := c.conn.GetAll("doing")
+	if err != nil {
+		return links, err
+	}
+	links = make([]string, len(doneLinks)+len(todoLinks)+len(trashLinks)+len(doingLinks))
 	linksI := 0
 	for link := range doneLinks {
 		links[linksI] = link
@@ -113,6 +120,10 @@ func (c *Crawler) GetLinks() (links []string, err error) {
 		linksI++
 	}
 	for link := range trashLinks {
+		links[linksI] = link
+		linksI++
+	}
+	for link := range doingLinks {
 		links[linksI] = link
 		linksI++
 	}
@@ -131,6 +142,15 @@ func (c *Crawler) Dump() error {
 	}
 	fmt.Printf("Wrote %d links to %s\n", len(links), encodeURL(c.BaseURL)+".txt")
 	return nil
+}
+
+func (c *Crawler) ResetDoing() error {
+	keys, err := c.conn.GetKeys("doing")
+	if err != nil {
+		return err
+	}
+	c.log.Trace("Moved %d keys from doing to todo", len(keys))
+	return c.conn.Move("doing", "todo", keys)
 }
 
 func (c *Crawler) downloadOrCrawlLink(url string, currentNumberOfTries int, download bool) error {
@@ -260,7 +280,7 @@ func (c *Crawler) downloadOrCrawlLink(url string, currentNumberOfTries int, down
 			linkCandidates = linkCandidates[0:linkCandidatesI]
 
 			// Check to see if any link candidates have already been done
-			doesHaveKeysMap, err := c.conn.HasKeys([]string{"todo", "trash", "done"}, linkCandidates)
+			doesHaveKeysMap, err := c.conn.HasKeys([]string{"todo", "trash", "doing", "done"}, linkCandidates)
 			if err != nil {
 				return err
 			}
@@ -281,7 +301,8 @@ func (c *Crawler) downloadOrCrawlLink(url string, currentNumberOfTries int, down
 		}
 
 		// Dequeue the current URL
-		err = c.conn.Post("done", map[string]string{url: strconv.Itoa(currentNumberOfTries)})
+		// err = c.conn.Post("done", map[string]string{url: strconv.Itoa(currentNumberOfTries)})
+		err = c.conn.Move("doing", "done", []string{url})
 		if err != nil {
 			c.log.Error("Problem posting to done: %s", err.Error())
 		}
@@ -289,7 +310,8 @@ func (c *Crawler) downloadOrCrawlLink(url string, currentNumberOfTries int, down
 	} else {
 		if currentNumberOfTries > 3 {
 			// Delete this URL as it has been tried too many times
-			err = c.conn.Post("trash", map[string]string{url: strconv.Itoa(currentNumberOfTries)})
+			err = c.conn.Move("doing", "trash", []string{url})
+			// err = c.conn.Post("trash", map[string]string{url: strconv.Itoa(currentNumberOfTries)})
 			if err != nil {
 				c.log.Error("Problem posting to trash: %s", err.Error())
 			}
@@ -344,7 +366,7 @@ func (c *Crawler) Download(urls []string) error {
 // Crawl is the function to crawl with the set parameters
 func (c *Crawler) Crawl() error {
 	c.log.Trace("Checking to see if database has %s", c.BaseURL)
-	urlsAlreadyAdded, err := c.conn.HasKeys([]string{"todo", "trash", "done"}, []string{c.BaseURL})
+	urlsAlreadyAdded, err := c.conn.HasKeys([]string{"todo", "doing", "trash", "done"}, []string{c.BaseURL})
 	if err != nil {
 		return err
 	}
@@ -383,6 +405,11 @@ func (c *Crawler) downloadOrCrawl(download bool) error {
 		if err != nil {
 			return err
 		}
+		err = c.conn.Post("doing", linksToDo)
+		if err != nil {
+			return err
+		}
+
 		if len(linksToDo) == 0 {
 			break
 		}
@@ -421,6 +448,7 @@ func (c *Crawler) updateListCounts() error {
 	}
 	c.numToDo = stats["todo"]
 	c.numDone = stats["done"]
+	c.numDoing = stats["doing"]
 	c.numTrash = stats["trash"]
 	return nil
 }
