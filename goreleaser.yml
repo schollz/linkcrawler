@@ -1,7 +1,7 @@
 # goreleaser.yml
 # Build customization
 build:
-  binary_name: linkcrawler
+  binary: linkcrawler
   goos:
     - windows
     - darwin
