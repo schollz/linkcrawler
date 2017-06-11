@@ -5,7 +5,6 @@ import (
 	"compress/gzip"
 	"encoding/base32"
 	"fmt"
-	"golang.org/x/net/proxy"
 	"io/ioutil"
 	"log"
 	"math"
@@ -18,6 +17,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/net/proxy"
 
 	humanize "github.com/dustin/go-humanize"
 	"github.com/goware/urlx"
@@ -38,6 +39,7 @@ type Crawler struct {
 	MaxNumberWorkers           int
 	MaxNumberConnections       int
 	Verbose                    bool
+	UseTor                     bool
 	FilePrefix                 string
 	Remote, Username, Password string // Parameters for BoltDB remote connection
 	UserAgent                  string
@@ -72,6 +74,7 @@ func New(url string, boltdbserver string, trace bool) (*Crawler, error) {
 	c.FilePrefix = encodeURL(url)
 	c.TimeIntervalToPrintStats = 5
 	c.Remote = boltdbserver
+	c.UseTor = false
 	c.UserAgent = ""
 	c.log.Info("Creating new database on %s: %s.db", c.Remote, encodeURL(url))
 	c.conn, err = connect.Open(c.Remote, encodeURL(url))
@@ -392,21 +395,30 @@ func (c *Crawler) Crawl() error {
 
 func (c *Crawler) downloadOrCrawl(download bool) error {
 	// Generate the connection pool
-	tbProxyURL, err := url.Parse("socks5://127.0.0.1:9050")
-	if err != nil {
-		c.log.Fatal("Failed to parse proxy URL: %v\n", err)
-	}
-	tbDialer, err := proxy.FromURL(tbProxyURL, proxy.Direct)
-	if err != nil {
-		c.log.Fatal("Failed to obtain proxy dialer: %v\n", err)
+	var tr *http.Transport
+	if c.UseTor {
+		tbProxyURL, err := url.Parse("socks5://127.0.0.1:9050")
+		if err != nil {
+			c.log.Fatal("Failed to parse proxy URL: %v\n", err)
+		}
+		tbDialer, err := proxy.FromURL(tbProxyURL, proxy.Direct)
+		if err != nil {
+			c.log.Fatal("Failed to obtain proxy dialer: %v\n", err)
+		}
+		tr = &http.Transport{
+			MaxIdleConns:       c.MaxNumberConnections,
+			IdleConnTimeout:    30 * time.Second,
+			DisableCompression: true,
+			Dial:               tbDialer.Dial,
+		}
+	} else {
+		tr = &http.Transport{
+			MaxIdleConns:       c.MaxNumberConnections,
+			IdleConnTimeout:    30 * time.Second,
+			DisableCompression: true,
+		}
 	}
 
-	tr := &http.Transport{
-		MaxIdleConns:       c.MaxNumberConnections,
-		IdleConnTimeout:    30 * time.Second,
-		DisableCompression: true,
-		Dial:               tbDialer.Dial,
-	}
 	c.client = &http.Client{Transport: tr}
 
 	c.programTime = time.Now()

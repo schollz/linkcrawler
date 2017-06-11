@@ -31,28 +31,28 @@ func TestGeneral(t *testing.T) {
 		t.Error(err)
 	}
 
-	// allLinks, err := crawl.GetLinks()
-	// if err != nil {
-	// 	t.Error(err)
-	// }
-	// if len(allLinks) < 30 {
-	// 	t.Errorf("Only got %d links", len(allLinks))
-	// }
+	allLinks, err := crawl.GetLinks()
+	if err != nil {
+		t.Error(err)
+	}
+	if len(allLinks) < 30 {
+		t.Errorf("Only got %d links", len(allLinks))
+	}
 
-	// // Reload the crawler
-	// conn.DeleteDatabase()
-	// crawl, err = New("http://rpiai.com/", boltdbserver, true)
-	// if err != nil {
-	// 	t.Error(err)
-	// }
+	// Reload the crawler
+	conn.DeleteDatabase()
+	crawl, err = New("http://rpiai.com/", boltdbserver, true)
+	if err != nil {
+		t.Error(err)
+	}
 
-	// err = crawl.Download(allLinks)
-	// if err != nil {
-	// 	t.Errorf("Problem downloading: %s", err.Error())
-	// }
+	err = crawl.Download(allLinks)
+	if err != nil {
+		t.Errorf("Problem downloading: %s", err.Error())
+	}
 
-	// err = crawl.Dump()
-	// if err != nil {
-	// 	t.Errorf("Problem dumping: %s", err.Error())
-	// }
+	err = crawl.Dump()
+	if err != nil {
+		t.Errorf("Problem dumping: %s", err.Error())
+	}
 }

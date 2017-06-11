@@ -77,6 +77,10 @@ func main() {
 			Name:  "redo",
 			Usage: "move doing to todo",
 		},
+		cli.BoolFlag{
+			Name:  "tor",
+			Usage: "use tor proxy",
+		},
 	}
 	app.Commands = []cli.Command{
 		{
@@ -114,6 +118,7 @@ func main() {
 				craw.TimeIntervalToPrintStats = c.GlobalInt("stats")
 				craw.UserAgent = c.GlobalString("useragent")
 				craw.TrashLimit = c.GlobalInt("trash-limit")
+				craw.UseTor = c.GlobalBool("tor")
 				if len(c.GlobalString("include")) > 0 {
 					craw.KeywordsToInclude = strings.Split(strings.ToLower(c.GlobalString("include")), ",")
 				}
@@ -168,6 +173,8 @@ func main() {
 				craw.Verbose = c.GlobalBool("verbose")
 				craw.TimeIntervalToPrintStats = c.GlobalInt("stats")
 				craw.UserAgent = c.GlobalString("useragent")
+				craw.TrashLimit = c.GlobalInt("trash-limit")
+				craw.UseTor = c.GlobalBool("tor")
 				if len(c.GlobalString("include")) > 0 {
 					craw.KeywordsToInclude = strings.Split(strings.ToLower(c.GlobalString("include")), ",")
 				}
