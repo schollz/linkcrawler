@@ -5,11 +5,13 @@ import (
 	"compress/gzip"
 	"encoding/base32"
 	"fmt"
+	"golang.org/x/net/proxy"
 	"io/ioutil"
 	"log"
 	"math"
 	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"strconv"
@@ -390,10 +392,20 @@ func (c *Crawler) Crawl() error {
 
 func (c *Crawler) downloadOrCrawl(download bool) error {
 	// Generate the connection pool
+	tbProxyURL, err := url.Parse("socks5://127.0.0.1:9050")
+	if err != nil {
+		c.log.Fatal("Failed to parse proxy URL: %v\n", err)
+	}
+	tbDialer, err := proxy.FromURL(tbProxyURL, proxy.Direct)
+	if err != nil {
+		c.log.Fatal("Failed to obtain proxy dialer: %v\n", err)
+	}
+
 	tr := &http.Transport{
 		MaxIdleConns:       c.MaxNumberConnections,
 		IdleConnTimeout:    30 * time.Second,
 		DisableCompression: true,
+		Dial:               tbDialer.Dial,
 	}
 	c.client = &http.Client{Transport: tr}
 
