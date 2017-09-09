@@ -15,6 +15,8 @@
 
 Crawl responsibly.
 
+# This repo has been superseded by [schollz/goredis-crawler](https://github.com/schollz/goredis-crawler)
+
 Getting Started
 ===============
 
